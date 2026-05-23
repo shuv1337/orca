@@ -26,9 +26,11 @@ import { inspectRuntimeTerminalProcess } from '@/runtime/runtime-terminal-inspec
 import {
   discardTerminalOutput,
   flushTerminalOutput,
+  suppressTerminalCursorUntilOutputSettles,
   waitForTerminalOutputParsed,
   writeTerminalOutput
 } from '@/lib/pane-manager/pane-terminal-output-scheduler'
+import { isLocalNativeWindowsPty } from '@/lib/pane-manager/windows-pty-compatibility'
 import { recordTerminalOutput } from '@/lib/pane-manager/pane-scroll'
 import { makePaneKey } from '../../../../shared/stable-pane-id'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
@@ -866,6 +868,12 @@ export function connectPanePty(
   const connectionId = repo?.connectionId ?? null
   const tab = (state.tabsByWorktree[deps.worktreeId] ?? []).find((t) => t.id === deps.tabId)
   const shellOverride = tab?.shellOverride
+  const shouldSuppressForegroundCursor = isLocalNativeWindowsPty({
+    userAgent: navigator.userAgent,
+    connectionId,
+    cwd: deps.cwd,
+    shellOverride
+  })
 
   const restoredPtyIdForTransport =
     deps.restoredLeafId && deps.restoredPtyIdByLeafId
@@ -963,6 +971,12 @@ export function connectPanePty(
     // auto-replies never count as interaction.
     deps.clearTerminalTabUnread(deps.tabId)
     deps.clearWorktreeUnread(deps.worktreeId)
+    if (shouldSuppressForegroundCursor) {
+      // Why: native Windows ConPTY can leave the old visual cursor painted
+      // until the shell echoes the next frame; other PTY hosts should keep
+      // normal cursor visibility when commands intentionally produce no echo.
+      suppressTerminalCursorUntilOutputSettles(pane.terminal)
+    }
     const intent = pendingTerminalInputIntent
     // Why: real xterm can deliver the terminal byte even when our DOM keydown
     // listener missed the press. Exact Ctrl+C/Escape bytes are still safe to
