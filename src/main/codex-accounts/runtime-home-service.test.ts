@@ -159,8 +159,24 @@ function getSystemLaunchCodexHomePath(): string {
   return join(testState.userDataDir, 'codex-runtime-home', 'launch', 'host', 'system', 'home')
 }
 
+function getActiveHostCodexHomePath(): string {
+  return join(testState.userDataDir, 'codex-runtime-home', 'active', 'host', 'home')
+}
+
+function getHostLaunchCodexHomePath(accountId: string | null): string {
+  const segment =
+    accountId === null
+      ? 'system'
+      : `account-${createHash('sha256').update(accountId).digest('hex').slice(0, 32)}`
+  return join(testState.userDataDir, 'codex-runtime-home', 'launch', 'host', segment, 'home')
+}
+
 function getWslRuntimeCodexHomePath(wslHome: string): string {
   return join(wslHome, '.local', 'share', 'orca', 'codex-runtime-home', 'home')
+}
+
+function getActiveWslCodexHomePath(wslHome: string): string {
+  return join(wslHome, '.local', 'share', 'orca', 'codex-runtime-home', 'active', 'wsl', 'home')
 }
 
 function getWslLaunchCodexHomePath(wslHome: string, accountId: string | null): string {
@@ -588,15 +604,16 @@ describe('CodexRuntimeHomeService', () => {
     expect(existsSync(runtimeAuthPath)).toBe(false)
   })
 
-  it('returns the selected launch home for Codex launch and rate-limit preparation', async () => {
+  it('returns the active home for Codex launch and the selected launch home for rate-limit preparation', async () => {
     const store = createStore(createSettings())
     const { CodexRuntimeHomeService } = await import('./runtime-home-service')
     const service = new CodexRuntimeHomeService(store as never)
 
-    expect(service.prepareForCodexLaunch()).toBe(getSystemLaunchCodexHomePath())
+    expect(service.prepareForCodexLaunch()).toBe(getActiveHostCodexHomePath())
     expect(service.prepareForRateLimitFetch()).toBe(getSystemLaunchCodexHomePath())
     expect(existsSync(getRuntimeCodexHomePath())).toBe(true)
     expect(existsSync(getSystemLaunchCodexHomePath())).toBe(true)
+    expectResourceLinked(getActiveHostCodexHomePath(), getSystemLaunchCodexHomePath())
   })
 
   it('uses separate selected host launch homes while sharing non-auth runtime state', async () => {
@@ -637,13 +654,16 @@ describe('CodexRuntimeHomeService', () => {
     const { CodexRuntimeHomeService } = await import('./runtime-home-service')
     const service = new CodexRuntimeHomeService(store as never)
 
-    const launchHome1 = service.prepareForCodexLaunch()
+    expect(service.prepareForCodexLaunch()).toBe(getActiveHostCodexHomePath())
+    const launchHome1 = getHostLaunchCodexHomePath('account-1')
     settings.activeCodexManagedAccountId = 'account-2'
     settings.activeCodexManagedAccountIdsByRuntime = { host: 'account-2', wsl: {} }
-    const launchHome2 = service.prepareForCodexLaunch()
+    expect(service.prepareForCodexLaunch()).toBe(getActiveHostCodexHomePath())
+    const launchHome2 = getHostLaunchCodexHomePath('account-2')
 
     expect(launchHome1).not.toBe(launchHome2)
     expect(launchHome1).toContain(join('codex-runtime-home', 'launch', 'host', 'account-'))
+    expectResourceLinked(getActiveHostCodexHomePath(), launchHome2)
     expect(readFileSync(join(launchHome1!, 'auth.json'), 'utf-8')).toBe(account1Auth)
     expect(readFileSync(join(launchHome2!, 'auth.json'), 'utf-8')).toBe(account2Auth)
     expectResourceLinkedOrCopied(
@@ -705,19 +725,22 @@ describe('CodexRuntimeHomeService', () => {
     const { CodexRuntimeHomeService } = await import('./runtime-home-service')
     const service = new CodexRuntimeHomeService(store as never)
 
-    const launchHome1 = service.prepareForCodexLaunch()
+    expect(service.prepareForCodexLaunch()).toBe(getActiveHostCodexHomePath())
+    const launchHome1 = getHostLaunchCodexHomePath('account-1')
     settings.activeCodexManagedAccountId = 'account-2'
     settings.activeCodexManagedAccountIdsByRuntime = { host: 'account-2', wsl: {} }
-    const launchHome2 = service.prepareForCodexLaunch()
+    expect(service.prepareForCodexLaunch()).toBe(getActiveHostCodexHomePath())
+    const launchHome2 = getHostLaunchCodexHomePath('account-2')
 
-    expect(readFileSync(join(launchHome1!, 'auth.json'), 'utf-8')).toBe(account1Auth)
-    expect(readFileSync(join(launchHome2!, 'auth.json'), 'utf-8')).toBe(account2Auth)
-    expect(lstatSync(join(launchHome1!, 'auth.json')).isSymbolicLink()).toBe(false)
-    expect(lstatSync(join(launchHome2!, 'auth.json')).isSymbolicLink()).toBe(false)
+    expectResourceLinked(getActiveHostCodexHomePath(), launchHome2)
+    expect(readFileSync(join(launchHome1, 'auth.json'), 'utf-8')).toBe(account1Auth)
+    expect(readFileSync(join(launchHome2, 'auth.json'), 'utf-8')).toBe(account2Auth)
+    expect(lstatSync(join(launchHome1, 'auth.json')).isSymbolicLink()).toBe(false)
+    expect(lstatSync(join(launchHome2, 'auth.json')).isSymbolicLink()).toBe(false)
     for (const entryName of sqliteEntries) {
       const sharedPath = join(getRuntimeCodexHomePath(), entryName)
-      expectResourceLinked(join(launchHome1!, entryName), sharedPath)
-      expectResourceLinked(join(launchHome2!, entryName), sharedPath)
+      expectResourceLinked(join(launchHome1, entryName), sharedPath)
+      expectResourceLinked(join(launchHome2, entryName), sharedPath)
     }
   })
 
@@ -1183,10 +1206,12 @@ describe('CodexRuntimeHomeService', () => {
       const wslLaunchHomePath = getWslLaunchCodexHomePath(wslHome, 'account-1')
 
       expect(readFileSync(runtimeAuthPath, 'utf-8')).toBe('{"account":"host-system"}\n')
-      expect(service.prepareForCodexLaunch()).toBe(getSystemLaunchCodexHomePath())
+      expect(service.prepareForCodexLaunch()).toBe(getActiveHostCodexHomePath())
+      expectResourceLinked(getActiveHostCodexHomePath(), getSystemLaunchCodexHomePath())
       expect(service.prepareForCodexLaunch({ runtime: 'wsl', wslDistro: 'Ubuntu' })).toBe(
-        wslLaunchHomePath
+        getActiveWslCodexHomePath(wslHome)
       )
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       expect(readFileSync(join(wslLaunchHomePath, 'auth.json'), 'utf-8')).toBe(
         '{"account":"wsl"}\n'
       )
@@ -1251,8 +1276,9 @@ describe('CodexRuntimeHomeService', () => {
       const wslLaunchHomePath = getWslLaunchCodexHomePath(wslHome, null)
 
       expect(service.prepareForCodexLaunch({ runtime: 'wsl', wslDistro: 'Ubuntu' })).toBe(
-        wslLaunchHomePath
+        getActiveWslCodexHomePath(wslHome)
       )
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       expect(store.updateSettings).toHaveBeenCalledWith({
         activeCodexManagedAccountId: null,
         activeCodexManagedAccountIdsByRuntime: { host: null, wsl: { Ubuntu: null } }
@@ -1322,7 +1348,8 @@ describe('CodexRuntimeHomeService', () => {
       const firstLaunchHomePath = getWslLaunchCodexHomePath(wslHome, 'account-1')
       const secondLaunchHomePath = getWslLaunchCodexHomePath(wslHome, 'account-2')
 
-      expect(service.prepareForCodexLaunch(target)).toBe(firstLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), firstLaunchHomePath)
       expect(readFileSync(join(firstLaunchHomePath, 'auth.json'), 'utf-8')).toBe(firstAuth)
       expect(readFileSync(join(wslRuntimeHomePath, 'auth.json'), 'utf-8')).toBe(firstAuth)
 
@@ -1331,7 +1358,8 @@ describe('CodexRuntimeHomeService', () => {
       })
       service.syncForCurrentSelection(target)
 
-      expect(service.prepareForCodexLaunch(target)).toBe(secondLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), secondLaunchHomePath)
       expect(readFileSync(join(secondLaunchHomePath, 'auth.json'), 'utf-8')).toBe(secondAuth)
       expect(readFileSync(join(firstLaunchHomePath, 'auth.json'), 'utf-8')).toBe(firstAuth)
       expect(readFileSync(join(wslRuntimeHomePath, 'auth.json'), 'utf-8')).toBe(secondAuth)
@@ -1491,18 +1519,21 @@ describe('CodexRuntimeHomeService', () => {
       const service = new CodexRuntimeHomeService(store as never)
       const target = { runtime: 'wsl' as const, wslDistro: 'Ubuntu' }
 
-      const firstLaunchHomePath = service.prepareForCodexLaunch(target)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      const firstLaunchHomePath = getWslLaunchCodexHomePath(wslHome, 'account-1')
       settings.activeCodexManagedAccountIdsByRuntime = { host: null, wsl: { Ubuntu: 'account-2' } }
-      const secondLaunchHomePath = service.prepareForCodexLaunch(target)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      const secondLaunchHomePath = getWslLaunchCodexHomePath(wslHome, 'account-2')
 
-      expect(readFileSync(join(firstLaunchHomePath!, 'auth.json'), 'utf-8')).toBe(firstAuth)
-      expect(readFileSync(join(secondLaunchHomePath!, 'auth.json'), 'utf-8')).toBe(secondAuth)
-      expect(lstatSync(join(firstLaunchHomePath!, 'auth.json')).isSymbolicLink()).toBe(false)
-      expect(lstatSync(join(secondLaunchHomePath!, 'auth.json')).isSymbolicLink()).toBe(false)
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), secondLaunchHomePath)
+      expect(readFileSync(join(firstLaunchHomePath, 'auth.json'), 'utf-8')).toBe(firstAuth)
+      expect(readFileSync(join(secondLaunchHomePath, 'auth.json'), 'utf-8')).toBe(secondAuth)
+      expect(lstatSync(join(firstLaunchHomePath, 'auth.json')).isSymbolicLink()).toBe(false)
+      expect(lstatSync(join(secondLaunchHomePath, 'auth.json')).isSymbolicLink()).toBe(false)
       for (const entryName of sqliteEntries) {
         const sharedPath = join(wslRuntimeHomePath, entryName)
-        expectResourceLinked(join(firstLaunchHomePath!, entryName), sharedPath)
-        expectResourceLinked(join(secondLaunchHomePath!, entryName), sharedPath)
+        expectResourceLinked(join(firstLaunchHomePath, entryName), sharedPath)
+        expectResourceLinked(join(secondLaunchHomePath, entryName), sharedPath)
       }
     } finally {
       if (originalPlatform) {
@@ -1585,8 +1616,9 @@ describe('CodexRuntimeHomeService', () => {
 
       expect(readFileSync(getRuntimeCodexAuthPath(), 'utf-8')).toBe(hostAuth)
       expect(service.prepareForCodexLaunch({ runtime: 'wsl', wslDistro: 'Ubuntu' })).toBe(
-        wslLaunchHomePath
+        getActiveWslCodexHomePath(wslHome)
       )
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       expect(readFileSync(join(wslManagedHomePath, 'auth.json'), 'utf-8')).toBe(wslManagedAuth)
       expect(readFileSync(join(wslLaunchHomePath, 'auth.json'), 'utf-8')).toBe(wslManagedAuth)
     } finally {
@@ -1641,7 +1673,8 @@ describe('CodexRuntimeHomeService', () => {
       const { CodexRuntimeHomeService } = await import('./runtime-home-service')
       const service = new CodexRuntimeHomeService(store as never)
 
-      expect(service.prepareForCodexLaunch(target)).toBe(wslLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       writeFileSync(runtimeAuthPath, staleRuntimeAuth, 'utf-8')
       writeFileSync(managedAuthPath, reauthedAuth, 'utf-8')
 
@@ -1706,7 +1739,8 @@ describe('CodexRuntimeHomeService', () => {
       const service = new CodexRuntimeHomeService(store as never)
       const target = { runtime: 'wsl' as const, wslDistro: 'Ubuntu' }
 
-      expect(service.prepareForCodexLaunch(target)).toBe(wslLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       expect(readFileSync(join(managedHomePath, 'auth.json'), 'utf-8')).toBe(refreshedAuth)
       expect(readFileSync(join(wslLaunchHomePath, 'auth.json'), 'utf-8')).toBe(refreshedAuth)
       expect(readFileSync(join(getWslRuntimeCodexHomePath(wslHome), 'auth.json'), 'utf-8')).toBe(
@@ -1865,14 +1899,16 @@ describe('CodexRuntimeHomeService', () => {
       const systemLaunchHomePath = getWslLaunchCodexHomePath(wslHome, null)
       const managedLaunchHomePath = getWslLaunchCodexHomePath(wslHome, 'account-1')
 
-      expect(service.prepareForCodexLaunch(target)).toBe(systemLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), systemLaunchHomePath)
       writeFileSync(join(systemLaunchHomePath, 'auth.json'), refreshedSystemAuth, 'utf-8')
 
       store.updateSettings({
         activeCodexManagedAccountIdsByRuntime: { host: null, wsl: { Ubuntu: 'account-1' } }
       })
 
-      expect(service.prepareForCodexLaunch(target)).toBe(managedLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), managedLaunchHomePath)
       expect(readFileSync(join(systemCodexHomePath, 'auth.json'), 'utf-8')).toBe(
         refreshedSystemAuth
       )
@@ -1975,10 +2011,12 @@ describe('CodexRuntimeHomeService', () => {
       const target = { runtime: 'wsl' as const, wslDistro: 'Ubuntu' }
       const wslLaunchHomePath = getWslLaunchCodexHomePath(wslHome, null)
 
-      expect(service.prepareForCodexLaunch(target)).toBe(wslLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       writeFileSync(join(wslLaunchHomePath, 'auth.json'), refreshedAuth, 'utf-8')
 
-      expect(service.prepareForCodexLaunch(target)).toBe(wslLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       expect(readFileSync(join(systemCodexHomePath, 'auth.json'), 'utf-8')).toBe(refreshedAuth)
       expect(readFileSync(join(wslLaunchHomePath, 'auth.json'), 'utf-8')).toBe(refreshedAuth)
     } finally {
@@ -2022,7 +2060,8 @@ describe('CodexRuntimeHomeService', () => {
       const service = new CodexRuntimeHomeService(store as never)
       const target = { runtime: 'wsl' as const, wslDistro: 'Ubuntu' }
 
-      expect(service.prepareForCodexLaunch(target)).toBe(wslLaunchHomePath)
+      expect(service.prepareForCodexLaunch(target)).toBe(getActiveWslCodexHomePath(wslHome))
+      expectResourceLinked(getActiveWslCodexHomePath(wslHome), wslLaunchHomePath)
       expect(readFileSync(join(systemCodexHomePath, 'auth.json'), 'utf-8')).toBe(refreshedAuth)
       expect(readFileSync(join(wslLaunchHomePath, 'auth.json'), 'utf-8')).toBe(refreshedAuth)
     } finally {

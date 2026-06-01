@@ -404,7 +404,7 @@ function prepareCodexRuntimeHomeForLaunch(target?: CodexAccountSelectionTarget):
     )
   }
   if (target?.runtime !== 'wsl') {
-    return codexRuntimeHome!.refreshCurrentHostLaunchHome() ?? runtimeHomePath
+    return codexRuntimeHome!.refreshCurrentHostActiveHome() ?? runtimeHomePath
   }
   return runtimeHomePath
 }
