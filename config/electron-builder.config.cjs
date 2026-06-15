@@ -9,6 +9,10 @@ const {
 } = require('./packaged-runtime-node-modules.cjs')
 
 const isMacRelease = process.env.ORCA_MAC_RELEASE === '1'
+// Why: release builds must ship both Intel and Apple Silicon DMGs, but local
+// validation builds only need the host architecture — building the other arch
+// forces a cross-arch native rebuild and doubles build time for no local gain.
+const macArches = isMacRelease ? ['x64', 'arm64'] : [process.arch === 'x64' ? 'x64' : 'arm64']
 const featureWallResources = {
   from: 'resources/onboarding/feature-wall',
   to: 'onboarding/feature-wall'
@@ -223,11 +227,11 @@ module.exports = {
     target: [
       {
         target: 'dmg',
-        arch: ['x64', 'arm64']
+        arch: macArches
       },
       {
         target: 'zip',
-        arch: ['x64', 'arm64']
+        arch: macArches
       }
     ]
   },
@@ -268,7 +272,14 @@ module.exports = {
       },
       featureWallResources
     ],
-    target: ['AppImage', 'deb', 'rpm'],
+    // Why: pin Linux to x64 so a release always emits x64 AppImage/deb/rpm
+    // regardless of the CI runner's host arch, instead of defaulting to
+    // whatever the builder happens to run on.
+    target: [
+      { target: 'AppImage', arch: ['x64'] },
+      { target: 'deb', arch: ['x64'] },
+      { target: 'rpm', arch: ['x64'] }
+    ],
     maintainer: 'stablyai',
     category: 'Utility'
   },
@@ -295,7 +306,7 @@ module.exports = {
   npmRebuild: true,
   publish: {
     provider: 'github',
-    owner: 'stablyai',
+    owner: 'shuv1337',
     repo: 'orca',
     releaseType: 'release'
   }

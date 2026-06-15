@@ -2,15 +2,22 @@ import { net } from 'electron'
 import { parse } from 'yaml'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
 
-const ATOM_FEED_URL = 'https://github.com/stablyai/orca/releases.atom'
-const RELEASES_DOWNLOAD_BASE = 'https://github.com/stablyai/orca/releases/download'
+// Why: the auto-update feed must track this fork's releases, not upstream's.
+// Keep the slug in one place so the atom feed, download base, and tag regex
+// stay in sync (must match publish.owner/repo in electron-builder.config.cjs).
+const RELEASE_REPO_SLUG = 'shuv1337/orca'
+const ATOM_FEED_URL = `https://github.com/${RELEASE_REPO_SLUG}/releases.atom`
+const RELEASES_DOWNLOAD_BASE = `https://github.com/${RELEASE_REPO_SLUG}/releases/download`
 const FETCH_TIMEOUT_MS = 5000
 const MAX_MANIFEST_PROBE_CANDIDATES = 6
 
 // Why: GitHub's atom feed lists every release (prerelease or stable) in a
 // single flat list. Each entry has a /releases/tag/<tag> URL we can mine
 // without any channel filtering.
-const TAG_HREF_RE = /href="https:\/\/github\.com\/stablyai\/orca\/releases\/tag\/([^"]+)"/g
+const TAG_HREF_RE = new RegExp(
+  `href="https://github\\.com/${RELEASE_REPO_SLUG.replace('/', '\\/')}/releases/tag/([^"]+)"`,
+  'g'
+)
 
 export function getReleaseDownloadUrl(tag: string): string {
   return `${RELEASES_DOWNLOAD_BASE}/${encodeURIComponent(tag)}`

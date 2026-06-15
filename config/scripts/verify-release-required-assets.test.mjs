@@ -54,6 +54,19 @@ describe('getRequiredReleaseAssetNames', () => {
       ])
     )
   })
+
+  it('excludes mac assets when mac is not in the requested platforms', () => {
+    const names = getRequiredReleaseAssetNames('v1.4.27', ['linux', 'win'])
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'latest-linux.yml',
+        'orca-linux.AppImage',
+        'latest.yml',
+        'orca-windows-setup.exe'
+      ])
+    )
+    expect(names.some((name) => name.includes('mac') || name.endsWith('.dmg'))).toBe(false)
+  })
 })
 
 describe('extractManifestAssetNames', () => {
@@ -99,5 +112,25 @@ describe('verifyRequiredReleaseAssets', () => {
       verifyRequiredReleaseAssets({ repo: 'stablyai/orca', tag, token: 'token' })
     ).rejects.toThrow('Missing: Orca-1.4.27-arm64-mac.zip')
     expect(latestMacAsset).toBeTruthy()
+  })
+
+  it('passes for a linux+win partial release with no mac assets present', async () => {
+    const tag = 'v1.4.27'
+    const assets = getRequiredReleaseAssetNames(tag, ['linux', 'win'])
+    const release = releaseWithAssets(tag, assets)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([release]))
+      .mockResolvedValue(jsonResponse('version: 1.4.27\n'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await verifyRequiredReleaseAssets({
+      repo: 'shuv1337/orca',
+      tag,
+      token: 'token',
+      platforms: ['linux', 'win']
+    })
+    expect(result.checked.some((name) => name.includes('mac') || name.endsWith('.dmg'))).toBe(false)
+    expect(result.tag).toBe(tag)
   })
 })
