@@ -1020,6 +1020,8 @@ export type PreloadApi = {
       sessionExpired?: boolean
       coldRestore?: { scrollback: string; cwd: string }
     }>
+    isZellijAvailable: () => Promise<boolean>
+    isZellijWrappingAllowed: () => Promise<boolean>
     write: (id: string, data: string) => void
     writeAccepted: (id: string, data: string) => Promise<boolean>
     resize: (id: string, cols: number, rows: number) => void

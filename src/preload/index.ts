@@ -704,6 +704,10 @@ const api = {
       coldRestore?: { scrollback: string; cwd: string }
     }> => ipcRenderer.invoke('pty:spawn', opts),
 
+    isZellijAvailable: (): Promise<boolean> => ipcRenderer.invoke('pty:isZellijAvailable'),
+    isZellijWrappingAllowed: (): Promise<boolean> =>
+      ipcRenderer.invoke('pty:isZellijWrappingAllowed'),
+
     write: (id: string, data: string): void => {
       ipcRenderer.send('pty:write', { id, data })
     },

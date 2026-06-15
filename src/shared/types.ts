@@ -2363,6 +2363,9 @@ export type GlobalSettings = {
    *  — can silently rewrite the user's clipboard). Opt-in preserves the
    *  conservative default while making the capability one toggle away. */
   terminalAllowOsc52Clipboard: boolean
+  /** Why: Zellij is an opt-in Linux/SSH durability layer. Keep it disabled by
+   *  default so terminal launches do not depend on host-local multiplexer state. */
+  terminalUseZellij: boolean
   /** Experimental Claude Code Agent Teams integration. Native panes use a
    *  tmux-compatible shim so teammate output stays on Orca's normal PTY path. */
   claudeAgentTeamsMode?: ClaudeAgentTeamsMode

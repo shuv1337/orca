@@ -5,6 +5,7 @@ boundary. Splitting it by line count would scatter tightly coupled terminal
 process behavior across files without a cleaner ownership seam. */
 import { join, delimiter } from 'path'
 import { randomUUID } from 'crypto'
+import { execFile } from 'child_process'
 import { type BrowserWindow, type WebContents, ipcMain, app } from 'electron'
 export { getBashShellReadyRcfileContent } from '../providers/local-pty-shell-ready'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
@@ -66,6 +67,12 @@ import { isHostCodexHomeForWsl, isWslCodexHomeForHost } from '../pty/codex-home-
 import { buildConfiguredProxyEnv, type NetworkProxySettings } from '../../shared/network-proxy'
 import { parseWorkspaceKey } from '../../shared/workspace-scope'
 import {
+  buildZellijSessionName,
+  shouldWrapWithZellij,
+  wrapLaunchCommandWithZellij,
+  type ZellijCommandAvailability
+} from '../../shared/zellij-session-command'
+import {
   assertFolderWorkspacePathUsable,
   getFolderWorkspacePathStatus
 } from '../project-groups/folder-workspace-path-status'
@@ -77,6 +84,30 @@ import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
 
 let localProvider: IPtyProvider = new LocalPtyProvider()
 const sshProviders = new Map<string, IPtyProvider>()
+let localZellijAvailability: Promise<boolean> | null = null
+
+function probeLocalZellijAvailable(): Promise<boolean> {
+  localZellijAvailability ??= new Promise((resolve) => {
+    execFile('sh', ['-lc', 'command -v zellij >/dev/null 2>&1'], (error) => {
+      resolve(!error)
+    })
+  })
+  return localZellijAvailability
+}
+
+async function resolveZellijAvailability(options: {
+  isSsh: boolean
+  isWsl: boolean
+  isLinuxLocal: boolean
+}): Promise<ZellijCommandAvailability | null> {
+  if (options.isSsh || options.isWsl) {
+    return 'guarded'
+  }
+  if (!options.isLinuxLocal) {
+    return null
+  }
+  return (await probeLocalZellijAvailable()) ? 'known-present' : null
+}
 // Why: PTY IDs are assigned at spawn time with a connectionId, but subsequent
 // write/resize/kill calls only carry the PTY ID. This map lets us route
 // post-spawn operations to the correct provider without the renderer needing
@@ -1046,6 +1077,8 @@ export function registerPtyHandlers(
   ipcMain.removeHandler('pty:getMainBufferSnapshot')
   ipcMain.removeHandler('pty:getRendererDeliveryDebugSnapshot')
   ipcMain.removeHandler('pty:resetRendererDeliveryDebug')
+  ipcMain.removeHandler('pty:isZellijAvailable')
+  ipcMain.removeHandler('pty:isZellijWrappingAllowed')
   ipcMain.removeHandler('pty:writeAccepted')
   ipcMain.removeAllListeners('pty:write')
   ipcMain.removeAllListeners('pty:ackColdRestore')
@@ -2020,6 +2053,12 @@ export function registerPtyHandlers(
   })
 
   ipcMain.handle(
+    'pty:isZellijAvailable',
+    async () => process.platform === 'linux' && (await probeLocalZellijAvailable())
+  )
+  ipcMain.handle('pty:isZellijWrappingAllowed', () => shouldWrapWithZellij(process.env))
+
+  ipcMain.handle(
     'pty:spawn',
     async (
       _event,
@@ -2316,6 +2355,36 @@ export function registerPtyHandlers(
         spawnOptions.terminalWindowsPowerShellImplementation = getSettings
           ? (getSettings()?.terminalWindowsPowerShellImplementation ?? 'auto')
           : undefined
+      }
+      if (
+        getSettings?.()?.terminalUseZellij === true &&
+        args.worktreeId &&
+        validatedLeafId &&
+        shouldWrapWithZellij(process.env)
+      ) {
+        const availability = await resolveZellijAvailability({
+          isSsh: Boolean(args.connectionId),
+          isWsl:
+            !args.connectionId &&
+            process.platform === 'win32' &&
+            shouldSkipCodexHomeEnvForWindowsShell(effectiveShellOverride, args.cwd),
+          isLinuxLocal: !args.connectionId && process.platform === 'linux'
+        })
+        if (availability && (args.command !== undefined || args.sessionId === undefined)) {
+          const sessionName = buildZellijSessionName({
+            worktreeId: args.worktreeId,
+            stableLeafId: validatedLeafId
+          })
+          // Why: blank panes need a startup command too; otherwise the provider
+          // would leave the shell outside the named Zellij session.
+          spawnOptions.command = wrapLaunchCommandWithZellij({
+            originalCommand: args.command,
+            sessionName,
+            cwd: args.cwd,
+            env: spawnEnv,
+            availability
+          })
+        }
       }
       let result: PtySpawnResult
       try {
