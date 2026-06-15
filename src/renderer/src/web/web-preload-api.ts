@@ -2293,6 +2293,9 @@ function createShellApi(): NonNullable<Partial<PreloadApi>['shell']> {
 function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
   return {
     spawn: () => Promise.reject(new Error('Local PTYs are unavailable in the web client.')),
+    // Why: the web client has no local PTYs, so Zellij wrapping can never apply.
+    isZellijAvailable: () => Promise.resolve(false),
+    isZellijWrappingAllowed: () => Promise.resolve(true),
     write: () => {},
     writeAccepted: () => Promise.resolve(false),
     resize: () => {},
