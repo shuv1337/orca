@@ -4,17 +4,26 @@ import { pathToFileURL } from 'node:url'
 
 const API_VERSION = '2022-11-28'
 
-export function getRequiredReleaseAssetNames(tag) {
-  const version = tag.replace(/^v/i, '')
-  return [
-    'latest-linux.yml',
-    'latest-mac.yml',
-    'latest.yml',
+export const ALL_RELEASE_PLATFORMS = ['linux', 'win', 'mac']
+
+// Why: the updater manifest is the entry point per platform, so the gate must
+// resolve which manifest to probe from the same platform set it requires.
+const PLATFORM_MANIFEST = {
+  linux: 'latest-linux.yml',
+  win: 'latest.yml',
+  mac: 'latest-mac.yml'
+}
+
+const PLATFORM_ASSETS = {
+  linux: (version) => [
+    PLATFORM_MANIFEST.linux,
     'orca-linux.AppImage',
     `orca-ide_${version}_amd64.deb`,
-    `orca-ide-${version}.x86_64.rpm`,
-    'orca-windows-setup.exe',
-    'orca-windows-setup.exe.blockmap',
+    `orca-ide-${version}.x86_64.rpm`
+  ],
+  win: () => [PLATFORM_MANIFEST.win, 'orca-windows-setup.exe', 'orca-windows-setup.exe.blockmap'],
+  mac: (version) => [
+    PLATFORM_MANIFEST.mac,
     `Orca-${version}-mac.zip`,
     `Orca-${version}-mac.zip.blockmap`,
     `Orca-${version}-arm64-mac.zip`,
@@ -24,6 +33,17 @@ export function getRequiredReleaseAssetNames(tag) {
     'orca-macos-arm64.dmg',
     'orca-macos-arm64.dmg.blockmap'
   ]
+}
+
+// Why: a fork can publish a partial release (e.g. linux-x64 + windows while
+// macOS signing is being set up). The required-asset set must match the
+// platforms the release build actually produced, or the publish gate blocks a
+// legitimate partial release on assets that were never built.
+export function getRequiredReleaseAssetNames(tag, platforms = ALL_RELEASE_PLATFORMS) {
+  const version = tag.replace(/^v/i, '')
+  return platforms
+    .filter((platform) => platform in PLATFORM_ASSETS)
+    .flatMap((platform) => PLATFORM_ASSETS[platform](version))
 }
 
 export function extractManifestAssetNames(manifestText) {
@@ -81,12 +101,17 @@ async function fetchAssetText(repo, asset, token) {
   return res.text()
 }
 
-export async function verifyRequiredReleaseAssets({ repo, tag, token }) {
+export async function verifyRequiredReleaseAssets({
+  repo,
+  tag,
+  token,
+  platforms = ALL_RELEASE_PLATFORMS
+}) {
   const release = await fetchRelease(repo, tag, token)
   const assetsByName = new Map(release.assets.map((asset) => [asset.name, asset]))
 
-  const requiredNames = new Set(getRequiredReleaseAssetNames(tag))
-  const manifestNames = ['latest-linux.yml', 'latest-mac.yml', 'latest.yml']
+  const requiredNames = new Set(getRequiredReleaseAssetNames(tag, platforms))
+  const manifestNames = platforms.map((platform) => PLATFORM_MANIFEST[platform]).filter(Boolean)
 
   for (const manifestName of manifestNames) {
     const manifestAsset = assetsByName.get(manifestName)
@@ -142,8 +167,17 @@ async function main() {
     throw new Error('GH_TOKEN or GITHUB_TOKEN must be set')
   }
   const repo = process.env.GITHUB_REPOSITORY || 'stablyai/orca'
-  const result = await verifyRequiredReleaseAssets({ repo, tag, token })
-  console.log(`Verified ${result.checked.length} required release assets for ${repo}@${tag}`)
+  // Why: ORCA_RELEASE_PLATFORMS (comma list) lets a partial release publish
+  // without the platforms it skipped; absent the env var, require all of them.
+  const platforms = process.env.ORCA_RELEASE_PLATFORMS
+    ? process.env.ORCA_RELEASE_PLATFORMS.split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : ALL_RELEASE_PLATFORMS
+  const result = await verifyRequiredReleaseAssets({ repo, tag, token, platforms })
+  console.log(
+    `Verified ${result.checked.length} required release assets for ${repo}@${tag} (platforms: ${platforms.join(', ')})`
+  )
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

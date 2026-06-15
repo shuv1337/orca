@@ -57,17 +57,21 @@ concurrency:
 
 jobs:
   cut:
-    # Why: this job bumps package.json and fast-forwards main. On a fork with
-    # Actions enabled, the scheduled cut would run against the fork's main and
-    # diverge it (version line) every slot, conflicting every PR back upstream.
-    # Gate to the canonical repo so the workflow no-ops on forks.
-    if: github.repository == 'stablyai/orca'
+    # Why: this job bumps package.json and fast-forwards main. The scheduled
+    # cron must stay canonical-only — on a fork it would run against the fork's
+    # main and diverge it (version line) every slot, conflicting every PR back
+    # upstream. Manual workflow_dispatch is allowed on any repo so this fork can
+    # cut its own releases (mac + windows + linux-x64) on demand.
+    if: github.event_name != 'schedule' || github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
       tag: ${{ steps.tag.outputs.tag || steps.version.outputs.recovered_tag }}
       should_release: ${{ steps.tag.outputs.tag != '' || steps.version.outputs.recovered_tag != '' }}
       latest_published_rc_tag: ${{ steps.publish_drafts.outputs.latest_published_tag }}
+      # Why: secrets can't be read in job-level `if:`, so resolve macOS signing
+      # availability here into an output that gates the mac build + cask jobs.
+      include_mac: ${{ steps.mac_signing.outputs.include_mac }}
     steps:
       - name: Checkout ref
         uses: actions/checkout@v6
@@ -84,6 +88,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Why: the macOS release leg requires Apple signing secrets. Forks without
+      # them publish a partial release (linux-x64 + windows) instead of wedging
+      # the whole pipeline; mac re-enables automatically once MAC_CERTS is set.
+      - name: Determine macOS signing availability
+        id: mac_signing
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+        run: |
+          if [[ -n "$MAC_CERTS" ]]; then
+            echo "include_mac=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "include_mac=false" >>"$GITHUB_OUTPUT"
+          fi
 
       - name: Resolve ref SHA
         id: resolve
@@ -694,12 +712,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-15
-            platform: mac
-            release_command: node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
-            eb_cache_path: |
-              ~/Library/Caches/electron
-              ~/Library/Caches/electron-builder
           - os: windows-latest
             platform: win
             release_command: 'node config/scripts/ensure-native-runtime.mjs --runtime=electron; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; pnpm exec electron-builder --config config/electron-builder.config.cjs --win --publish always'
@@ -782,22 +794,6 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y python3-gi gir1.2-atspi-2.0 at-spi2-core xclip xdotool rpm
 
-      - name: Verify macOS signing environment
-        if: matrix.platform == 'mac'
-        run: node config/scripts/verify-macos-release-env.mjs
-        env:
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-      # Why: `plutil -lint` accepts duplicate plist keys, but `codesign`
-      # rejects duplicate entitlements after the expensive app build.
-      - name: Verify macOS entitlements
-        if: matrix.platform == 'mac'
-        run: pnpm verify:macos-entitlements
-
       # Why: telemetry's transport gate (`src/main/telemetry/client.ts:IS_OFFICIAL_BUILD`)
       # requires the build identity to be the literal string `stable` or `rc`,
       # substituted by electron-vite's `define` block at build time. Derive
@@ -844,37 +840,12 @@ jobs:
           ORCA_BUILD_IDENTITY: ${{ steps.tag-classify.outputs.identity }}
           ORCA_POSTHOG_WRITE_KEY: ${{ secrets.ORCA_POSTHOG_WRITE_KEY }}
 
-      # Why: macOS signing secrets (CSC_LINK, CSC_KEY_PASSWORD) must NOT be
-      # passed to non-macOS builds. electron-builder uses CSC_LINK as the
-      # code-signing certificate on any platform, so leaking the Apple
-      # Developer ID cert to the Windows build causes the NSIS installer to
-      # be signed with an Apple cert whose chain Windows cannot validate,
-      # breaking the auto-updater with "certificate chain could not be built
-      # to a trusted root authority" (issue #631).
-      #
       # Why retry: electron-builder downloads NSIS/winCodeSign/squirrel
       # binaries and the Electron runtime from GitHub release assets during
       # publish. GitHub's download CDN occasionally returns 504s that fail
       # the whole release. Retry on failure so transient network errors
       # don't require a manual re-run.
-      - name: Publish release artifacts (macOS)
-        if: matrix.platform == 'mac'
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 45
-          max_attempts: 3
-          retry_wait_seconds: 30
-          command: ${{ matrix.release_command }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
       - name: Publish release artifacts
-        if: matrix.platform != 'mac'
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 30
@@ -926,11 +897,149 @@ jobs:
       - name: Verify telemetry constants present in app.asar
         run: node config/scripts/verify-telemetry-constants.mjs
 
+  # Why: macOS is its own job (not a `build` matrix leg) so a fork without Apple
+  # signing secrets can still publish linux-x64 + windows. It runs only when
+  # `cut` reports signing is available, and `publish-release` treats a skipped
+  # mac job as a valid partial release rather than a blocker.
+  build-mac:
+    needs:
+      - cut
+      - create-release
+    if: needs.cut.outputs.should_release == 'true' && needs.cut.outputs.include_mac == 'true'
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ needs.cut.outputs.tag }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Cache electron-builder downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-builder-mac-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-builder-mac-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm install --frozen-lockfile
+
+      - name: Verify macOS signing environment
+        run: node config/scripts/verify-macos-release-env.mjs
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # Why: `plutil -lint` accepts duplicate plist keys, but `codesign`
+      # rejects duplicate entitlements after the expensive app build.
+      - name: Verify macOS entitlements
+        run: pnpm verify:macos-entitlements
+
+      - name: Classify release tag for telemetry build identity
+        id: tag-classify
+        shell: bash
+        env:
+          TAG: ${{ needs.cut.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            identity=rc
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            identity=stable
+          else
+            echo "::error::Tag $TAG does not match stable or rc pattern; refusing to build official artifact"
+            exit 1
+          fi
+          echo "identity=$identity" >>"$GITHUB_OUTPUT"
+          echo "Classified $TAG as $identity"
+
+      - name: Build app
+        run: pnpm build:release
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          ORCA_BUILD_IDENTITY: ${{ steps.tag-classify.outputs.identity }}
+          ORCA_POSTHOG_WRITE_KEY: ${{ secrets.ORCA_POSTHOG_WRITE_KEY }}
+
+      # Why retry: electron-builder downloads its mac toolchain (notarytool,
+      # the Electron runtime) from GitHub during publish; transient 504s should
+      # not require a manual re-run.
+      - name: Publish release artifacts (macOS)
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 45
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify release remains draft after artifact upload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.cut.outputs.tag }}
+        run: |
+          set -euo pipefail
+          releases_json="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+          draft="$(jq -e -r --arg tag "$TAG" '
+            map(select(.tag_name == $tag))
+            | if length == 1 and (.[0].draft | type) == "boolean" then (.[0].draft | tostring) else empty end
+          ' <<<"$releases_json")" || {
+            echo "::error::Release $TAG was not found in the draft-aware releases list, or its draft state was missing."
+            exit 1
+          }
+          if [[ "$draft" != "true" ]]; then
+            echo "::error::Release $TAG was published during the mac artifact upload."
+            exit 1
+          fi
+
+      - name: Verify telemetry constants present in app.asar
+        run: node config/scripts/verify-telemetry-constants.mjs
+
   publish-release:
     needs:
       - cut
       - build
+      - build-mac
       - terminal-rendering-golden
+    # Why: build-mac is skipped on forks without signing secrets, which would
+    # otherwise skip this job too. Require the linux/win build + golden E2E to
+    # pass and treat a skipped (but not failed) mac job as a valid partial
+    # release. A *failed* mac job still blocks publishing a half-mac release.
+    if: >-
+      always() &&
+      needs.cut.outputs.should_release == 'true' &&
+      needs.build.result == 'success' &&
+      needs.terminal-rendering-golden.result == 'success' &&
+      (needs.build-mac.result == 'success' || needs.build-mac.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -966,10 +1075,13 @@ jobs:
       - name: Verify release assets complete
         # Why: publish-release is the only intended draft -> published
         # transition. Refuse to un-draft until every updater manifest and
-        # referenced installer asset is present on GitHub.
+        # referenced installer asset is present on GitHub. Scope the required
+        # set to the platforms this release built so a fork's linux+win-only
+        # release is not blocked on mac assets that were never produced.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.cut.outputs.tag }}
+          ORCA_RELEASE_PLATFORMS: ${{ needs.cut.outputs.include_mac == 'true' && 'linux,win,mac' || 'linux,win' }}
         run: node config/scripts/verify-release-required-assets.mjs "$TAG"
 
       - name: Publish release
@@ -1000,7 +1112,8 @@ jobs:
       - cut
     # Why: publish-complete-draft-releases can expose a recovered RC without
     # running the build/publish jobs; still advance the RC cask to that tag.
-    if: ${{ needs.cut.outputs.latest_published_rc_tag != '' }}
+    # The cask installs Orca.app, so only bump it when this release built mac.
+    if: ${{ needs.cut.outputs.latest_published_rc_tag != '' && needs.cut.outputs.include_mac == 'true' }}
     uses: ./.github/workflows/homebrew-bump.yml
     with:
       tag: ${{ needs.cut.outputs.latest_published_rc_tag }}
@@ -1010,7 +1123,8 @@ jobs:
     needs:
       - cut
       - publish-release
-    if: ${{ needs.cut.outputs.tag != '' && startsWith(needs.cut.outputs.tag, 'v') }}
+    # Why: the cask installs Orca.app — skip it for mac-less partial releases.
+    if: ${{ needs.cut.outputs.tag != '' && startsWith(needs.cut.outputs.tag, 'v') && needs.cut.outputs.include_mac == 'true' }}
     uses: ./.github/workflows/homebrew-bump.yml
     with:
       tag: ${{ needs.cut.outputs.tag }}
