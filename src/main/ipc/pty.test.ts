@@ -1760,6 +1760,134 @@ describe('registerPtyHandlers', () => {
         expect(store.persistPtyBinding).not.toHaveBeenCalled()
       })
 
+      it('does not wrap SSH spawn commands — the renderer owns SSH Zellij wrapping', async () => {
+        const sshSpawn = vi.fn(async (_options: { command?: string }) => ({ id: 'ssh-pty' }))
+        registerSshPtyProvider('ssh-1', {
+          spawn: sshSpawn,
+          write: vi.fn(),
+          resize: vi.fn(),
+          shutdown: vi.fn(),
+          sendSignal: vi.fn(),
+          getCwd: vi.fn(),
+          getInitialCwd: vi.fn(),
+          clearBuffer: vi.fn(),
+          acknowledgeDataEvent: vi.fn(),
+          hasChildProcesses: vi.fn(),
+          getForegroundProcess: vi.fn(),
+          serialize: vi.fn(),
+          revive: vi.fn(),
+          onData: vi.fn(() => () => {}),
+          onReplay: vi.fn(() => () => {}),
+          onExit: vi.fn(() => () => {}),
+          listProcesses: vi.fn(async () => []),
+          attach: vi.fn(),
+          getDefaultShell: vi.fn(),
+          getProfiles: vi.fn()
+        } as never)
+        handlers.clear()
+        registerPtyHandlers(mainWindow as never, undefined, undefined, (() => ({
+          terminalUseZellij: true
+        })) as never)
+
+        const savedZellij = process.env.ZELLIJ
+        const savedZellijSessionName = process.env.ZELLIJ_SESSION_NAME
+        delete process.env.ZELLIJ
+        delete process.env.ZELLIJ_SESSION_NAME
+        const leafId = '11111111-1111-4111-8111-111111111111'
+        try {
+          await handlers.get('pty:spawn')!(null, {
+            cols: 80,
+            rows: 24,
+            env: { ORCA_PANE_KEY: makePaneKey('tab-1', leafId) },
+            command: "claude 'say test'",
+            connectionId: 'ssh-1',
+            worktreeId: 'wt-1',
+            tabId: 'tab-1',
+            leafId
+          })
+        } finally {
+          if (savedZellij === undefined) {
+            delete process.env.ZELLIJ
+          } else {
+            process.env.ZELLIJ = savedZellij
+          }
+          if (savedZellijSessionName === undefined) {
+            delete process.env.ZELLIJ_SESSION_NAME
+          } else {
+            process.env.ZELLIJ_SESSION_NAME = savedZellijSessionName
+          }
+        }
+
+        // Why: the SSH relay treats `command` only as an overlay-resolution hint
+        // and never executes it; wrapping it would corrupt Pi/OMP resolution. The
+        // renderer wraps and delivers the real SSH startup command instead, so
+        // main must pass the hint through untouched.
+        const command = sshSpawn.mock.calls.at(-1)![0].command as string
+        expect(command).toBe("claude 'say test'")
+        expect(command).not.toContain('zellij')
+      })
+
+      it('does not inject a blank Zellij command for caller-supplied restored sessions', async () => {
+        const sshSpawn = vi.fn(async (_options: { command?: string }) => ({ id: 'ssh-pty' }))
+        registerSshPtyProvider('ssh-1', {
+          spawn: sshSpawn,
+          write: vi.fn(),
+          resize: vi.fn(),
+          shutdown: vi.fn(),
+          sendSignal: vi.fn(),
+          getCwd: vi.fn(),
+          getInitialCwd: vi.fn(),
+          clearBuffer: vi.fn(),
+          acknowledgeDataEvent: vi.fn(),
+          hasChildProcesses: vi.fn(),
+          getForegroundProcess: vi.fn(),
+          serialize: vi.fn(),
+          revive: vi.fn(),
+          onData: vi.fn(() => () => {}),
+          onReplay: vi.fn(() => () => {}),
+          onExit: vi.fn(() => () => {}),
+          listProcesses: vi.fn(async () => []),
+          attach: vi.fn(),
+          getDefaultShell: vi.fn(),
+          getProfiles: vi.fn()
+        } as never)
+        handlers.clear()
+        registerPtyHandlers(mainWindow as never, undefined, undefined, (() => ({
+          terminalUseZellij: true
+        })) as never)
+
+        const savedZellij = process.env.ZELLIJ
+        const savedZellijSessionName = process.env.ZELLIJ_SESSION_NAME
+        delete process.env.ZELLIJ
+        delete process.env.ZELLIJ_SESSION_NAME
+        const leafId = '11111111-1111-4111-8111-111111111111'
+        try {
+          await handlers.get('pty:spawn')!(null, {
+            cols: 80,
+            rows: 24,
+            env: { ORCA_PANE_KEY: makePaneKey('tab-1', leafId) },
+            connectionId: 'ssh-1',
+            worktreeId: 'wt-1',
+            tabId: 'tab-1',
+            leafId,
+            sessionId: 'ssh:ssh-1@@restored-pty'
+          })
+        } finally {
+          if (savedZellij === undefined) {
+            delete process.env.ZELLIJ
+          } else {
+            process.env.ZELLIJ = savedZellij
+          }
+          if (savedZellijSessionName === undefined) {
+            delete process.env.ZELLIJ_SESSION_NAME
+          } else {
+            process.env.ZELLIJ_SESSION_NAME = savedZellijSessionName
+          }
+        }
+
+        expect(sshSpawn.mock.calls.at(-1)![0].command).toBeUndefined()
+      })
+
       it('marks a caller-supplied SSH session expired when remote reattach is gone', async () => {
         const sshSpawn = vi.fn(async () => {
           throw new Error('SSH_SESSION_EXPIRED: remote-pty')

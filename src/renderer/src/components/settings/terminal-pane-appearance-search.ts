@@ -52,3 +52,23 @@ export const getTerminalPaneInteractionSearchEntries = createLocalizedCatalog(()
   },
   ...getTerminalClipboardSearchEntries()
 ])
+
+export const getTerminalZellijSessionSearchEntry = createLocalizedCatalog(() => [
+  {
+    title: translate('auto.components.settings.terminal.search.7f31518ad8', 'Zellij Sessions'),
+    description: translate(
+      'auto.components.settings.terminal.search.7d226a4246',
+      'Run terminal panes inside named Zellij sessions for daemon-kill survival and external attach.'
+    ),
+    keywords: [
+      ...translateSearchKeyword('auto.components.settings.terminal.search.e1e8d520f7', 'zellij'),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.3f1c4c26f8', 'session'),
+      ...translateSearchKeyword(
+        'auto.components.settings.terminal.search.89755efedb',
+        'durability'
+      ),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.6a5a9b4a6a', 'attach'),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.dd3c22889c', 'ssh')
+    ]
+  }
+])

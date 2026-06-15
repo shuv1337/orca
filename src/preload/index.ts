@@ -686,6 +686,10 @@ const api = {
       // user-typing-Ctrl+T daemon-host path threads these.
       tabId?: string
       leafId?: string
+      // Why: signals that the renderer will type the startup command in itself
+      // (terminal-paste delivery), so main must not wrap a blank spawn in a
+      // Zellij session the renderer is about to open.
+      startupCommandDeliveredByRenderer?: boolean
       // Why: telemetry-plan.md§Agent launch semantics — main fires
       // `agent_started` only after the spawn succeeds. The renderer is the
       // source of truth for the launch metadata; main is the source of
@@ -703,6 +707,10 @@ const api = {
       sessionExpired?: boolean
       coldRestore?: { scrollback: string; cwd: string }
     }> => ipcRenderer.invoke('pty:spawn', opts),
+
+    isZellijAvailable: (): Promise<boolean> => ipcRenderer.invoke('pty:isZellijAvailable'),
+    isZellijWrappingAllowed: (): Promise<boolean> =>
+      ipcRenderer.invoke('pty:isZellijWrappingAllowed'),
 
     write: (id: string, data: string): void => {
       ipcRenderer.send('pty:write', { id, data })

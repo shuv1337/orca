@@ -5,6 +5,7 @@ boundary. Splitting it by line count would scatter tightly coupled terminal
 process behavior across files without a cleaner ownership seam. */
 import { join, delimiter } from 'path'
 import { randomUUID } from 'crypto'
+import { execFile } from 'child_process'
 import { type BrowserWindow, type WebContents, ipcMain, app } from 'electron'
 export { getBashShellReadyRcfileContent } from '../providers/local-pty-shell-ready'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
@@ -66,6 +67,12 @@ import { isHostCodexHomeForWsl, isWslCodexHomeForHost } from '../pty/codex-home-
 import { buildConfiguredProxyEnv, type NetworkProxySettings } from '../../shared/network-proxy'
 import { parseWorkspaceKey } from '../../shared/workspace-scope'
 import {
+  buildZellijSessionName,
+  shouldWrapWithZellij,
+  wrapLaunchCommandWithZellij,
+  type ZellijCommandAvailability
+} from '../../shared/zellij-session-command'
+import {
   assertFolderWorkspacePathUsable,
   getFolderWorkspacePathStatus
 } from '../project-groups/folder-workspace-path-status'
@@ -77,6 +84,30 @@ import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
 
 let localProvider: IPtyProvider = new LocalPtyProvider()
 const sshProviders = new Map<string, IPtyProvider>()
+let localZellijAvailability: Promise<boolean> | null = null
+
+function probeLocalZellijAvailable(): Promise<boolean> {
+  localZellijAvailability ??= new Promise((resolve) => {
+    execFile('sh', ['-lc', 'command -v zellij >/dev/null 2>&1'], (error) => {
+      resolve(!error)
+    })
+  })
+  return localZellijAvailability
+}
+
+async function resolveZellijAvailability(options: {
+  isSsh: boolean
+  isWsl: boolean
+  isLinuxLocal: boolean
+}): Promise<ZellijCommandAvailability | null> {
+  if (options.isSsh || options.isWsl) {
+    return 'guarded'
+  }
+  if (!options.isLinuxLocal) {
+    return null
+  }
+  return (await probeLocalZellijAvailable()) ? 'known-present' : null
+}
 // Why: PTY IDs are assigned at spawn time with a connectionId, but subsequent
 // write/resize/kill calls only carry the PTY ID. This map lets us route
 // post-spawn operations to the correct provider without the renderer needing
@@ -1046,6 +1077,8 @@ export function registerPtyHandlers(
   ipcMain.removeHandler('pty:getMainBufferSnapshot')
   ipcMain.removeHandler('pty:getRendererDeliveryDebugSnapshot')
   ipcMain.removeHandler('pty:resetRendererDeliveryDebug')
+  ipcMain.removeHandler('pty:isZellijAvailable')
+  ipcMain.removeHandler('pty:isZellijWrappingAllowed')
   ipcMain.removeHandler('pty:writeAccepted')
   ipcMain.removeAllListeners('pty:write')
   ipcMain.removeAllListeners('pty:ackColdRestore')
@@ -2020,6 +2053,12 @@ export function registerPtyHandlers(
   })
 
   ipcMain.handle(
+    'pty:isZellijAvailable',
+    async () => process.platform === 'linux' && (await probeLocalZellijAvailable())
+  )
+  ipcMain.handle('pty:isZellijWrappingAllowed', () => shouldWrapWithZellij(process.env))
+
+  ipcMain.handle(
     'pty:spawn',
     async (
       _event,
@@ -2042,6 +2081,12 @@ export function registerPtyHandlers(
         // short-circuits.
         tabId?: string
         leafId?: string
+        // Why: when the renderer delivers the startup command itself (terminal-
+        // paste, after shell-ready), main must not also wrap a blank spawn in
+        // Zellij — that would nest a second `zellij attach` inside the session
+        // the renderer is about to open. SSH is already excluded via
+        // connectionId; this flag covers local terminal-paste delivery.
+        startupCommandDeliveredByRenderer?: boolean
         // Why: telemetry-plan.md§Agent launch semantics. The renderer
         // threads what Orca was *asked* to launch through this field; main
         // fires `agent_started` only after `provider.spawn` resolves. Loose
@@ -2316,6 +2361,52 @@ export function registerPtyHandlers(
         spawnOptions.terminalWindowsPowerShellImplementation = getSettings
           ? (getSettings()?.terminalWindowsPowerShellImplementation ?? 'auto')
           : undefined
+      }
+      if (
+        getSettings?.()?.terminalUseZellij === true &&
+        args.worktreeId &&
+        validatedLeafId &&
+        shouldWrapWithZellij(process.env)
+      ) {
+        const availability = await resolveZellijAvailability({
+          isSsh: Boolean(args.connectionId),
+          isWsl:
+            !args.connectionId &&
+            process.platform === 'win32' &&
+            shouldSkipCodexHomeEnvForWindowsShell(effectiveShellOverride, args.cwd),
+          isLinuxLocal: !args.connectionId && process.platform === 'linux'
+        })
+        // Why: only wrap spawns the provider actually executes here. SSH spawns
+        // pass `command` to the relay purely as an overlay-resolution hint
+        // (ssh-pty-provider treats it as a hint, never runs it), and
+        // terminal-paste spawns get their startup command typed in by the
+        // renderer after shell-ready. Wrapping either would corrupt the SSH hint
+        // or nest a second `zellij attach` inside the session the renderer just
+        // opened. Both of those paths are wrapped exclusively by the renderer in
+        // pty-connection.ts.
+        if (
+          availability &&
+          !args.connectionId &&
+          !args.startupCommandDeliveredByRenderer &&
+          (args.command !== undefined || args.sessionId === undefined)
+        ) {
+          const sessionName = buildZellijSessionName({
+            worktreeId: args.worktreeId,
+            stableLeafId: validatedLeafId
+          })
+          // Why: blank panes need a startup command too; otherwise the provider
+          // would leave the shell outside the named Zellij session.
+          spawnOptions.command = wrapLaunchCommandWithZellij({
+            originalCommand: args.command,
+            sessionName,
+            cwd: args.cwd,
+            env: spawnEnv,
+            availability,
+            // Why: thread the user's resolved shell so the layout's login-shell
+            // sources their profile chain (PATH/NODE_OPTIONS) before exec.
+            shellCommand: effectiveShellOverride ?? (await provider.getDefaultShell())
+          })
+        }
       }
       let result: PtySpawnResult
       try {

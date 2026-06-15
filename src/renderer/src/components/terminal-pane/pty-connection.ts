@@ -96,6 +96,11 @@ import {
   normalizeAgentProviderSession
 } from '../../../../shared/agent-session-resume'
 import { isWslUncPath } from '../../../../shared/wsl-paths'
+import {
+  buildZellijSessionName,
+  wrapLaunchCommandWithZellij,
+  type ZellijCommandAvailability
+} from '../../../../shared/zellij-session-command'
 
 const pendingSpawnByPaneKey = new Map<string, Promise<string | null>>()
 const SSH_SESSION_EXPIRED_ERROR = 'SSH_SESSION_EXPIRED'
@@ -1475,6 +1480,10 @@ export function connectPanePty(
     cwd: deps.cwd,
     env: paneEnv,
     command: shouldDeliverStartupViaTerminalPaste ? undefined : paneStartup?.command,
+    // Why: terminal-paste delivery types the startup command in from the
+    // renderer after shell-ready, so main must not wrap this blank spawn in
+    // Zellij — the renderer wraps and delivers it here instead.
+    startupCommandDeliveredByRenderer: shouldDeliverStartupViaTerminalPaste,
     connectionId,
     worktreeId: deps.worktreeId,
     // Why: closes the SIGKILL race documented in INVESTIGATION.md by letting
@@ -1787,11 +1796,52 @@ export function connectPanePty(
     // stay renderer-delivered so xterm can apply bracketed-paste semantics.
     let pendingStartupCommand =
       shouldDeliverStartupViaTerminalPaste || connectionId ? (paneStartup?.command ?? null) : null
+    let pendingStartupEnv: Record<string, string> | null = paneStartup?.env ?? null
     const getColdRestoreAgentResumePlatform = (): NodeJS.Platform => {
       if (connectionId || (worktree?.path && isWslUncPath(worktree.path))) {
         return 'linux'
       }
       return CLIENT_PLATFORM
+    }
+    const resolveZellijWrappedStartupCommand = async (command: string): Promise<string> => {
+      const settings = useAppStore.getState().settings
+      if (settings?.terminalUseZellij !== true) {
+        return command
+      }
+      if (!(await window.api.pty.isZellijWrappingAllowed())) {
+        return command
+      }
+      const isSsh = Boolean(connectionId)
+      const isWsl = Boolean(worktree?.path && isWslUncPath(worktree.path))
+      let availability: ZellijCommandAvailability | null = null
+      if (isSsh || isWsl) {
+        availability = 'guarded'
+      } else if (CLIENT_PLATFORM === 'linux' && (await window.api.pty.isZellijAvailable())) {
+        availability = 'known-present'
+      }
+      if (!availability) {
+        return command
+      }
+      const env = {
+        ...pendingStartupEnv,
+        ORCA_PANE_KEY: cacheKey,
+        ORCA_TAB_ID: deps.tabId,
+        ORCA_WORKTREE_ID: deps.worktreeId
+      }
+      return wrapLaunchCommandWithZellij({
+        originalCommand: command,
+        sessionName: buildZellijSessionName({
+          worktreeId: deps.worktreeId,
+          stableLeafId: pane.leafId
+        }),
+        cwd: deps.cwd,
+        env,
+        availability,
+        // Why: thread the tab's shell override when set so the layout login-shell
+        // matches the pane's shell; otherwise the POSIX `sh` default bootstraps
+        // the env and execs the command (see zellij-session-command.ts).
+        ...(shellOverride ? { shellCommand: shellOverride } : {})
+      })
     }
     const prepareColdRestoreAgentResumeCommand = (): boolean => {
       if (pendingStartupCommand) {
@@ -1825,6 +1875,7 @@ export function connectPanePty(
       // Why: cold restore means the PTY process is gone but the agent provider
       // session is still resumable, so the replacement shell must launch it.
       pendingStartupCommand = startupPlan.launchCommand
+      pendingStartupEnv = startupPlan.env ?? null
       if (!useLiveEntry && sleepingRecord) {
         state.clearSleepingAgentSession(cacheKey)
       }
@@ -1850,15 +1901,20 @@ export function connectPanePty(
           if (pendingStartupCommand !== command || disposed) {
             return
           }
+          const commandToSend = await resolveZellijWrappedStartupCommand(command)
+          if (pendingStartupCommand !== command || disposed) {
+            return
+          }
           if (shouldDeliverStartupViaTerminalPaste) {
             // Why: this mode must pass through xterm so bracketed-paste
             // wrapping is applied before the submit Enter.
-            pasteTerminalText(pane.terminal, command)
+            pasteTerminalText(pane.terminal, commandToSend)
             transport.sendInput('\r')
           } else {
-            transport.sendInput(`${command}\r`)
+            transport.sendInput(`${commandToSend}\r`)
           }
           pendingStartupCommand = null
+          pendingStartupEnv = null
         })()
       }, 50)
     }

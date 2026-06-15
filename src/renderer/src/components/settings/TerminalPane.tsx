@@ -24,7 +24,8 @@ import {
   getTerminalMacYenSearchEntries,
   getTerminalPaneInteractionSearchEntries,
   getTerminalRenderingSearchEntries,
-  getTerminalSetupScriptSearchEntries
+  getTerminalSetupScriptSearchEntries,
+  getTerminalZellijSessionSearchEntry
 } from './terminal-search'
 import {
   getTerminalRightClickToPasteSearchEntry,
@@ -343,6 +344,7 @@ export function TerminalPane({
       </section>
     ) : null,
     matchesSettingsSearch(searchQuery, getTerminalPaneInteractionSearchEntries()) ||
+    matchesSettingsSearch(searchQuery, getTerminalZellijSessionSearchEntry()) ||
     (isWindows && matchesSettingsSearch(searchQuery, getTerminalRightClickToPasteSearchEntry())) ? (
       <section key="pane-interaction" className="space-y-3">
         <SettingsSubsectionHeader
@@ -499,6 +501,37 @@ export function TerminalPane({
               }
             />
           </SearchableSetting>
+
+          {matchesSettingsSearch(searchQuery, getTerminalZellijSessionSearchEntry()) && (
+            <SearchableSetting
+              title={translate(
+                'auto.components.settings.TerminalPane.c7d4cf3cf7',
+                'Zellij Sessions'
+              )}
+              description={translate(
+                'auto.components.settings.TerminalPane.c78790fa19',
+                'Run terminal panes inside named Zellij sessions so they can survive daemon kills and be attached from another terminal.'
+              )}
+              keywords={['zellij', 'session', 'durability', 'attach', 'ssh', 'terminal']}
+            >
+              <SettingsSwitchRow
+                label={translate(
+                  'auto.components.settings.TerminalPane.c7d4cf3cf7',
+                  'Zellij Sessions'
+                )}
+                description={translate(
+                  'auto.components.settings.TerminalPane.58dd1bb7ad',
+                  'Use deterministic Zellij sessions on local Linux panes and SSH/WSL targets where zellij is available.'
+                )}
+                checked={settings.terminalUseZellij}
+                onChange={() =>
+                  updateSettings({
+                    terminalUseZellij: !settings.terminalUseZellij
+                  })
+                }
+              />
+            </SearchableSetting>
+          )}
         </div>
       </section>
     ) : null,

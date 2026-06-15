@@ -246,6 +246,7 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     windowBackgroundBlur: false,
     terminalClipboardOnSelect: false,
     terminalAllowOsc52Clipboard: false,
+    terminalUseZellij: false,
     claudeAgentTeamsMode: 'off',
     setupScriptLaunchMode: 'new-tab',
     terminalScrollbackBytes: 10_000_000,

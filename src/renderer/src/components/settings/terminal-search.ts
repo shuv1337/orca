@@ -7,7 +7,8 @@ import {
 } from './terminal-advanced-platform-search'
 import {
   getTerminalPaneAppearanceSearchEntries,
-  getTerminalPaneInteractionSearchEntries
+  getTerminalPaneInteractionSearchEntries,
+  getTerminalZellijSessionSearchEntry
 } from './terminal-pane-appearance-search'
 import {
   getTerminalDarkThemeSearchEntries,
@@ -35,7 +36,8 @@ export {
 } from './terminal-typography-search'
 export {
   getTerminalPaneAppearanceSearchEntries,
-  getTerminalPaneInteractionSearchEntries
+  getTerminalPaneInteractionSearchEntries,
+  getTerminalZellijSessionSearchEntry
 } from './terminal-pane-appearance-search'
 export {
   getTerminalDarkThemeSearchEntries,
@@ -99,6 +101,7 @@ export function getTerminalPaneSearchEntries(platform: {
   return [
     ...getTerminalRenderingSearchEntries(),
     ...getTerminalPaneInteractionSearchEntries(),
+    ...(!platform.isWindows && !platform.isMac ? getTerminalZellijSessionSearchEntry() : []),
     ...(platform.isWindows ? getTerminalWindowsSearchEntries() : []),
     ...getTerminalSetupScriptSearchEntries(),
     ...getManageSessionsSearchEntries(),

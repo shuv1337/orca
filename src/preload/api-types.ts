@@ -1004,6 +1004,10 @@ export type PreloadApi = {
       // pty:spawn returns. Only the renderer's daemon-host path threads these.
       tabId?: string
       leafId?: string
+      // Why: signals that the renderer delivers the startup command itself
+      // (terminal-paste), so main must not also wrap a blank spawn in Zellij and
+      // nest a second `zellij attach` inside the renderer-opened session.
+      startupCommandDeliveredByRenderer?: boolean
       // Why: telemetry-plan.md§Agent launch semantics — main emits
       // `agent_started` only after the PTY/session is created successfully,
       // so the renderer threads the launch metadata through this field and
@@ -1020,6 +1024,8 @@ export type PreloadApi = {
       sessionExpired?: boolean
       coldRestore?: { scrollback: string; cwd: string }
     }>
+    isZellijAvailable: () => Promise<boolean>
+    isZellijWrappingAllowed: () => Promise<boolean>
     write: (id: string, data: string) => void
     writeAccepted: (id: string, data: string) => Promise<boolean>
     resize: (id: string, cols: number, rows: number) => void
