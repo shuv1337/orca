@@ -23,14 +23,25 @@ export function normalizeCookieInput(raw: string): string {
   if (!trimmed) {
     return trimmed
   }
-  // Already a valid cookie header: has multiple pairs or starts with known name.
-  if (trimmed.includes(';') || /^(?:auth|__Host-auth)=/i.test(trimmed)) {
+  // Multi-pair Cookie header: spaces after ';' are legal, so leave intact.
+  if (trimmed.includes(';')) {
     return trimmed
   }
-  // Only wrap if it looks like an Iron Session seal (starts with Fe26.2**)
-  // or a reasonably structured bare token (alphanumeric with dots/dashes).
-  // Otherwise, leave it alone to fail predictably instead of sending malformed auth.
-  if (trimmed.startsWith('Fe26.2**') || /^[a-zA-Z0-9.\-_]+$/.test(trimmed)) {
+  // Iron Session seals/cookie values are base64url segments joined by '*' and
+  // never contain whitespace. Strip any internal whitespace (incl. zero-width
+  // and nbsp) a masked paste field can hide, which would otherwise corrupt the
+  // auth value and surface as net::ERR_FAILED.
+  const compact = trimmed.replace(/(?:\s|\u200B|\u200C|\u200D|\uFEFF)+/g, '')
+  if (/^(?:auth|__Host-auth)=/i.test(compact)) {
+    return compact
+  }
+  if (compact.startsWith('Fe26.2**')) {
+    return `auth=${compact}`
+  }
+  // Bare structured token only when the ORIGINAL had no whitespace; otherwise
+  // it isn't a real token — leave it to fail predictably instead of "fixing"
+  // arbitrary input into a fake cookie.
+  if (/^[a-zA-Z0-9.\-_]+$/.test(trimmed)) {
     return `auth=${trimmed}`
   }
   return trimmed
@@ -143,10 +154,15 @@ export async function fetchOpenCodeGoRateLimits(
           Cookie: cookieHeader,
           'X-Server-Id': WORKSPACES_SERVER_ID,
           'X-Server-Instance': instanceId,
-          Accept: 'text/javascript, application/json;q=0.9, */*;q=0.8',
-          Origin: OPENCODE_BASE_URL,
-          Referer: OPENCODE_BASE_URL
+          Accept: 'text/javascript, application/json;q=0.9, */*;q=0.8'
+          // No Origin/Referer: setting Origin makes Electron's net.fetch enforce
+          // CORS on any redirect from this endpoint, which fails as net::ERR_FAILED.
         },
+        // Why: net.fetch defaults to credentials:'include', which merges Orca's
+        // default-session cookie jar with our explicit auth cookie. Stale
+        // opencode.ai cookies there override auth and bounce us to the login
+        // page. 'omit' sends only the cookie we control.
+        credentials: 'omit',
         signal: workspacesController.signal
       })
 
@@ -205,10 +221,13 @@ export async function fetchOpenCodeGoRateLimits(
         method: 'GET',
         headers: {
           Cookie: cookieHeader,
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          Origin: OPENCODE_BASE_URL,
-          Referer: OPENCODE_BASE_URL
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          // No Origin/Referer: setting Origin makes Electron's net.fetch enforce
+          // CORS on any redirect from this endpoint, which fails as net::ERR_FAILED.
         },
+        // Why: omit Orca's default-session cookies (see workspaces fetch above)
+        // so only our explicit auth cookie is sent.
+        credentials: 'omit',
         signal: candidateController.signal
       })
 

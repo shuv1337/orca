@@ -97,6 +97,17 @@ describe('fetchOpenCodeGoRateLimits', () => {
       expect(normalizeCookieInput('  Fe26.2**abc  ')).toBe('auth=Fe26.2**abc')
     })
 
+    it('strips internal whitespace from an Iron seal (masked-paste corruption)', () => {
+      // A space hidden mid-token by a masked input field would otherwise corrupt
+      // the Cookie header and surface as net::ERR_FAILED.
+      expect(normalizeCookieInput('Fe26.2**abc def')).toBe('auth=Fe26.2**abcdef')
+      expect(normalizeCookieInput('auth=Fe26.2**abc def')).toBe('auth=Fe26.2**abcdef')
+    })
+
+    it('strips zero-width and non-breaking spaces from an Iron seal', () => {
+      expect(normalizeCookieInput('Fe26.2**abc\u200Bdef\u00A0ghi')).toBe('auth=Fe26.2**abcdefghi')
+    })
+
     it('does not wrap unknown or malformed tokens', () => {
       expect(normalizeCookieInput('invalid token format')).toBe('invalid token format')
       expect(normalizeCookieInput('{}')).toBe('{}')
