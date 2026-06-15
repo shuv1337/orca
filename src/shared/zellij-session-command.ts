@@ -105,13 +105,24 @@ function buildAttachOrCreateCommand(options: ZellijWrapOptions): string {
   const createCommand =
     `d=$(mktemp -d) && printf '%s' ${layout} > "$d/layout.kdl" && ` +
     `zellij -s ${sessionName} -n "$d/layout.kdl"`
-  return `zellij attach ${sessionName} 2>/dev/null || { ${createCommand}; }`
+  // Why: zellij reads the staged layout only at session-create time, so drop the
+  // temp dir once the create command returns (on detach). Best-effort cleanup —
+  // a daemon kill before detach leaves it for the OS tmp reaper. `rm -rf ""` is
+  // a no-op under `-f` if `mktemp` failed before `$d` was assigned.
+  return `zellij attach ${sessionName} 2>/dev/null || { ${createCommand}; rm -rf "$d"; }`
 }
 
 function buildZellijLayoutString({
   originalCommand,
   cwd,
   env,
+  // Why: `sh` is a deliberate POSIX bootstrap whose only job is to apply the
+  // allowlisted ORCA_* env and then `exec` the real command (which becomes its
+  // own process). Callers thread the user's resolved shell through
+  // `shellCommand` so a login shell (bash/zsh) sources the user's profile chain
+  // — typically pulling in PATH/NODE_OPTIONS from `.bashrc`/`.zshrc` — before
+  // the `exec`. Blank panes never reach here; they use Zellij's own default
+  // shell via `zellij attach -c`.
   shellCommand = 'sh'
 }: ZellijWrapOptions): string {
   const command = originalCommand?.trim()

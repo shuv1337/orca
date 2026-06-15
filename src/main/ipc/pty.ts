@@ -2081,6 +2081,12 @@ export function registerPtyHandlers(
         // short-circuits.
         tabId?: string
         leafId?: string
+        // Why: when the renderer delivers the startup command itself (terminal-
+        // paste, after shell-ready), main must not also wrap a blank spawn in
+        // Zellij — that would nest a second `zellij attach` inside the session
+        // the renderer is about to open. SSH is already excluded via
+        // connectionId; this flag covers local terminal-paste delivery.
+        startupCommandDeliveredByRenderer?: boolean
         // Why: telemetry-plan.md§Agent launch semantics. The renderer
         // threads what Orca was *asked* to launch through this field; main
         // fires `agent_started` only after `provider.spawn` resolves. Loose
@@ -2370,7 +2376,20 @@ export function registerPtyHandlers(
             shouldSkipCodexHomeEnvForWindowsShell(effectiveShellOverride, args.cwd),
           isLinuxLocal: !args.connectionId && process.platform === 'linux'
         })
-        if (availability && (args.command !== undefined || args.sessionId === undefined)) {
+        // Why: only wrap spawns the provider actually executes here. SSH spawns
+        // pass `command` to the relay purely as an overlay-resolution hint
+        // (ssh-pty-provider treats it as a hint, never runs it), and
+        // terminal-paste spawns get their startup command typed in by the
+        // renderer after shell-ready. Wrapping either would corrupt the SSH hint
+        // or nest a second `zellij attach` inside the session the renderer just
+        // opened. Both of those paths are wrapped exclusively by the renderer in
+        // pty-connection.ts.
+        if (
+          availability &&
+          !args.connectionId &&
+          !args.startupCommandDeliveredByRenderer &&
+          (args.command !== undefined || args.sessionId === undefined)
+        ) {
           const sessionName = buildZellijSessionName({
             worktreeId: args.worktreeId,
             stableLeafId: validatedLeafId
@@ -2382,7 +2401,10 @@ export function registerPtyHandlers(
             sessionName,
             cwd: args.cwd,
             env: spawnEnv,
-            availability
+            availability,
+            // Why: thread the user's resolved shell so the layout's login-shell
+            // sources their profile chain (PATH/NODE_OPTIONS) before exec.
+            shellCommand: effectiveShellOverride ?? (await provider.getDefaultShell())
           })
         }
       }

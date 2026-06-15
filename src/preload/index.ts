@@ -686,6 +686,10 @@ const api = {
       // user-typing-Ctrl+T daemon-host path threads these.
       tabId?: string
       leafId?: string
+      // Why: signals that the renderer will type the startup command in itself
+      // (terminal-paste delivery), so main must not wrap a blank spawn in a
+      // Zellij session the renderer is about to open.
+      startupCommandDeliveredByRenderer?: boolean
       // Why: telemetry-plan.md§Agent launch semantics — main fires
       // `agent_started` only after the spawn succeeds. The renderer is the
       // source of truth for the launch metadata; main is the source of

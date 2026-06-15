@@ -1480,6 +1480,10 @@ export function connectPanePty(
     cwd: deps.cwd,
     env: paneEnv,
     command: shouldDeliverStartupViaTerminalPaste ? undefined : paneStartup?.command,
+    // Why: terminal-paste delivery types the startup command in from the
+    // renderer after shell-ready, so main must not wrap this blank spawn in
+    // Zellij — the renderer wraps and delivers it here instead.
+    startupCommandDeliveredByRenderer: shouldDeliverStartupViaTerminalPaste,
     connectionId,
     worktreeId: deps.worktreeId,
     // Why: closes the SIGKILL race documented in INVESTIGATION.md by letting
@@ -1832,7 +1836,11 @@ export function connectPanePty(
         }),
         cwd: deps.cwd,
         env,
-        availability
+        availability,
+        // Why: thread the tab's shell override when set so the layout login-shell
+        // matches the pane's shell; otherwise the POSIX `sh` default bootstraps
+        // the env and execs the command (see zellij-session-command.ts).
+        ...(shellOverride ? { shellCommand: shellOverride } : {})
       })
     }
     const prepareColdRestoreAgentResumeCommand = (): boolean => {

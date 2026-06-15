@@ -1760,7 +1760,7 @@ describe('registerPtyHandlers', () => {
         expect(store.persistPtyBinding).not.toHaveBeenCalled()
       })
 
-      it('wraps eligible SSH spawn commands with guarded Zellij attach-or-create', async () => {
+      it('does not wrap SSH spawn commands — the renderer owns SSH Zellij wrapping', async () => {
         const sshSpawn = vi.fn(async (_options: { command?: string }) => ({ id: 'ssh-pty' }))
         registerSshPtyProvider('ssh-1', {
           spawn: sshSpawn,
@@ -1818,13 +1818,13 @@ describe('registerPtyHandlers', () => {
           }
         }
 
+        // Why: the SSH relay treats `command` only as an overlay-resolution hint
+        // and never executes it; wrapping it would corrupt Pi/OMP resolution. The
+        // renderer wraps and delivers the real SSH startup command instead, so
+        // main must pass the hint through untouched.
         const command = sshSpawn.mock.calls.at(-1)![0].command as string
-        expect(command).toMatch(/^if command -v zellij >\/dev\/null 2>&1; then /)
-        expect(command).toContain("zellij attach '")
-        expect(command).toContain(' || { d=$(mktemp -d) &&')
-        expect(command).toContain(' -n "$d/layout.kdl"')
-        expect(command).not.toContain('--layout-string')
-        expect(command).toContain("; else claude 'say test'; fi")
+        expect(command).toBe("claude 'say test'")
+        expect(command).not.toContain('zellij')
       })
 
       it('does not inject a blank Zellij command for caller-supplied restored sessions', async () => {

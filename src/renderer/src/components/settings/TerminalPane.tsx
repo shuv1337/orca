@@ -75,7 +75,6 @@ export function TerminalPane({
   const isWindows = isWindowsUserAgent()
   const showWindowsHostSettings = isWindowsTerminalHost ?? isWindows
   const isMac = isMacUserAgent()
-  const isLinux = !showWindowsHostSettings && !isMac
   const detectedLayout = useDetectedOptionAsAlt()
   const detectedLayoutLabel =
     detectedLayout === 'us'
@@ -345,7 +344,7 @@ export function TerminalPane({
       </section>
     ) : null,
     matchesSettingsSearch(searchQuery, getTerminalPaneInteractionSearchEntries()) ||
-    (isLinux && matchesSettingsSearch(searchQuery, getTerminalZellijSessionSearchEntry())) ||
+    matchesSettingsSearch(searchQuery, getTerminalZellijSessionSearchEntry()) ||
     (isWindows && matchesSettingsSearch(searchQuery, getTerminalRightClickToPasteSearchEntry())) ? (
       <section key="pane-interaction" className="space-y-3">
         <SettingsSubsectionHeader
@@ -503,7 +502,7 @@ export function TerminalPane({
             />
           </SearchableSetting>
 
-          {isLinux && matchesSettingsSearch(searchQuery, getTerminalZellijSessionSearchEntry()) && (
+          {matchesSettingsSearch(searchQuery, getTerminalZellijSessionSearchEntry()) && (
             <SearchableSetting
               title={translate(
                 'auto.components.settings.TerminalPane.c7d4cf3cf7',
@@ -522,7 +521,7 @@ export function TerminalPane({
                 )}
                 description={translate(
                   'auto.components.settings.TerminalPane.58dd1bb7ad',
-                  'Use deterministic Zellij sessions for new Linux terminal panes when zellij is available.'
+                  'Use deterministic Zellij sessions on local Linux panes and SSH/WSL targets where zellij is available.'
                 )}
                 checked={settings.terminalUseZellij}
                 onChange={() =>

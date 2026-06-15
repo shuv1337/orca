@@ -82,6 +82,22 @@ describe('zellij session command', () => {
     expect(command).toContain('en')
     expect(command).toContain("exec claude '\\''say hi'\\''")
     expect(command).not.toContain("else claude 'say hi'")
+    // Why: the staged temp dir is removed once the create command returns so it
+    // does not accumulate in /tmp across session creations.
+    expect(command).toContain('rm -rf "$d"')
+  })
+
+  it('runs the layout under the caller-supplied shell so login init is sourced', () => {
+    const command = wrapLaunchCommandWithZellij({
+      originalCommand: 'claude',
+      sessionName: 'orca-feature-abc123',
+      env: null,
+      availability: 'known-present',
+      shellCommand: '/usr/bin/zsh'
+    })
+
+    expect(command).toContain('command="/usr/bin/zsh"')
+    expect(command).not.toContain('command="sh"')
   })
 
   it('guards remote commands so only a missing binary falls back to the original command', () => {
