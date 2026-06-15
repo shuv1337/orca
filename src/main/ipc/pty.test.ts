@@ -1821,8 +1821,9 @@ describe('registerPtyHandlers', () => {
         const command = sshSpawn.mock.calls.at(-1)![0].command as string
         expect(command).toMatch(/^if command -v zellij >\/dev\/null 2>&1; then /)
         expect(command).toContain("zellij attach '")
-        expect(command).toContain(" || zellij -s '")
-        expect(command).toContain("--layout-string '")
+        expect(command).toContain(' || { d=$(mktemp -d) &&')
+        expect(command).toContain(' -n "$d/layout.kdl"')
+        expect(command).not.toContain('--layout-string')
         expect(command).toContain("; else claude 'say test'; fi")
       })
 

@@ -2487,8 +2487,9 @@ describe('connectPanePty', () => {
       const sent = transport.sendInput.mock.calls.at(-1)?.[0] as string
       expect(sent).toMatch(/^if command -v zellij >\/dev\/null 2>&1; then /)
       expect(sent).toContain("zellij attach '")
-      expect(sent).toContain(" || zellij -s '")
-      expect(sent).toContain("--layout-string '")
+      expect(sent).toContain(' || { d=$(mktemp -d) &&')
+      expect(sent).toContain(' -n "$d/layout.kdl"')
+      expect(sent).not.toContain('--layout-string')
       expect(sent).toContain("; else claude 'say test'; fi\r")
     } finally {
       globalThis.setTimeout = originalSetTimeout

@@ -52,7 +52,7 @@ describe('zellij session command', () => {
     expect(kdlStringEscape('a"b\\c\nnext')).toBe('"a\\"b\\\\c\\nnext"')
   })
 
-  it('builds attach-or-create KDL command without falling back after create failures', () => {
+  it('stages the layout in a temp .kdl file and creates via --new-session-with-layout', () => {
     const command = wrapLaunchCommandWithZellij({
       originalCommand: "claude 'say hi'",
       sessionName: 'orca-feature-abc123',
@@ -64,9 +64,16 @@ describe('zellij session command', () => {
       availability: 'known-present'
     })
 
-    expect(command).toContain(
-      "zellij attach 'orca-feature-abc123' 2>/dev/null || zellij -s 'orca-feature-abc123' --layout-string '"
-    )
+    // Why: zellij 0.44 only honors a custom layout on create through `-n <file>`,
+    // so the create branch must stage the KDL in a real .kdl path, not pass it
+    // inline via --layout-string (which errors with "session not found").
+    expect(command).toContain("zellij attach 'orca-feature-abc123' 2>/dev/null || {")
+    expect(command).toContain("d=$(mktemp -d) && printf '%s' ")
+    expect(command).toContain('> "$d/layout.kdl" &&')
+    expect(command).toContain('zellij -s \'orca-feature-abc123\' -n "$d/layout.kdl"')
+    expect(command).not.toContain('--layout-string')
+    // Single-line KDL keeps the typed command newline-free.
+    expect(command).not.toContain('\n')
     expect(command).toContain('pane cwd="/repo/feature" command="sh"')
     expect(command).toContain('export ORCA_PANE_KEY=')
     expect(command).toContain('tab-1:11111111-1111-4111-8111-111111111111')
@@ -88,8 +95,9 @@ describe('zellij session command', () => {
 
     expect(command).toMatch(/^if command -v zellij >\/dev\/null 2>&1; then /)
     expect(command).toContain(
-      " zellij attach 'orca-feature-abc123' 2>/dev/null || zellij -s 'orca-feature-abc123' "
+      " zellij attach 'orca-feature-abc123' 2>/dev/null || { d=$(mktemp -d) &&"
     )
+    expect(command).toContain('zellij -s \'orca-feature-abc123\' -n "$d/layout.kdl"')
     expect(command).toContain('; else codex resume abc; fi')
   })
 

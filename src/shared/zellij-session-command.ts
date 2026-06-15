@@ -94,8 +94,18 @@ function buildAttachOrCreateCommand(options: ZellijWrapOptions): string {
   if (!originalCommand) {
     return `zellij attach -c ${sessionName}`
   }
-  const layout = buildZellijLayoutString(options)
-  return `zellij attach ${sessionName} 2>/dev/null || zellij -s ${sessionName} --layout-string ${quotePosixShell(layout)}`
+  // Why: zellij 0.44 only honors a custom layout on session CREATE through
+  // `--new-session-with-layout <file>` — `-s NAME --layout-string` errors with
+  // "session not found" because that flag means "add a tab to an existing
+  // session". The layout therefore has to live in a real file; we stage it in a
+  // throwaway dir whose basename ends in `.kdl` so zellij treats it as a path
+  // rather than a named layout, then attach-or-create. Single-line KDL keeps the
+  // typed/pasted command free of embedded newlines on the SSH + paste paths.
+  const layout = quotePosixShell(buildZellijLayoutString(options))
+  const createCommand =
+    `d=$(mktemp -d) && printf '%s' ${layout} > "$d/layout.kdl" && ` +
+    `zellij -s ${sessionName} -n "$d/layout.kdl"`
+  return `zellij attach ${sessionName} 2>/dev/null || { ${createCommand}; }`
 }
 
 function buildZellijLayoutString({
@@ -113,13 +123,12 @@ function buildZellijLayoutString({
     .join(' ')
   const innerCommand = `${exports ? `${exports} ` : ''}exec ${command}`
   const cwdLine = cwd ? ` cwd=${kdlStringEscape(cwd)}` : ''
-  return [
-    'layout {',
-    `  pane${cwdLine} command=${kdlStringEscape(shellCommand)} {`,
-    `    args ${kdlStringEscape('-lc')} ${kdlStringEscape(innerCommand)}`,
-    '  }',
-    '}'
-  ].join('\n')
+  // Single-line KDL: pane/args nodes terminated with `;` so the layout has no
+  // newlines to corrupt the typed launch command.
+  return (
+    `layout { pane${cwdLine} command=${kdlStringEscape(shellCommand)} ` +
+    `{ args ${kdlStringEscape('-lc')} ${kdlStringEscape(innerCommand)}; }; }`
+  )
 }
 
 function sanitizeZellijNamePart(value: string): string {
