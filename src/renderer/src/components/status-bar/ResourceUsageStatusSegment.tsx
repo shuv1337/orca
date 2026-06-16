@@ -1571,6 +1571,12 @@ export function ResourceUsageStatusSegment({
               </div>
             )}
 
+            {/* Why: keep Zellij sessions inside the Resource Manager's primary
+                scroll body. Rendering them below the fixed-height body leaves a
+                large empty void above and squeezes useful session controls into
+                a tiny nested scroller. */}
+            <ZellijSessionsPanel onResumed={() => setOpen(false)} />
+
             {resourceSnapshot && (
               <AppSection
                 app={resourceSnapshot.app}
@@ -1637,11 +1643,6 @@ export function ResourceUsageStatusSegment({
             ) : null}
           </div>
         ) : null}
-
-        {/* Why: Orca-spawned Zellij sessions live in the Zellij server, not the
-            PTY daemon, so they are surfaced here for both local and runtime
-            (remote client) modes. The panel hides itself when there are none. */}
-        <ZellijSessionsPanel onResumed={() => setOpen(false)} />
 
         {!runtimeEnvironmentActive ? (
           <WorkspaceSpaceCompactPanel onOpenFullPage={openSpaceResults} />
