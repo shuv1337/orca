@@ -2819,6 +2819,14 @@
           },
           "SshTargetStatusRow": {
             "sshHost": "SSH Host"
+          },
+          "ZellijSessionsPanel": {
+            "no_active_worktree": "Open a workspace first to resume a Zellij session.",
+            "kill_failed": "Failed to delete Zellij session.",
+            "title": "Zellij sessions",
+            "refresh": "Refresh Zellij sessions",
+            "resume": "Resume {{value0}}",
+            "delete": "Delete {{value0}}"
           }
         }
       },
@@ -5546,7 +5554,8 @@
           "advanced": "Advanced",
           "serverDetails": "Server details",
           "advertiseThisApp": "Advertise this app as a server",
-          "advertiseThisAppHelp": "Create access links for browsers, mobile clients, or another Orca client to connect back to this running app."
+          "advertiseThisAppHelp": "Create access links for browsers, mobile clients, or another Orca client to connect back to this running app.",
+          "runtimeReachable": "{{value0}} is reachable."
         },
         "RuntimePairingGeneratedUrlRows": {
           "0495f68959": "{{value0}}をコピー"
@@ -6025,7 +6034,10 @@
           "af0c3b6e39": "Windows では、右クリックしてクリップボードを terminal に貼り付けます。 Ctrl キーを押しながら右クリックしてコンテキスト メニューを開きます。",
           "29154326bb": "の上",
           "ab20575a8a": "オフ",
-          "ab3a1f9068": "wsl.exe"
+          "ab3a1f9068": "wsl.exe",
+          "c7d4cf3cf7": "Zellij Sessions",
+          "c78790fa19": "Run terminal panes inside named Zellij sessions so they can survive daemon kills and be attached from another terminal.",
+          "58dd1bb7ad": "Use deterministic Zellij sessions on local Linux panes and SSH/WSL targets where zellij is available."
         },
         "TerminalSettingsPreview": {
           "a63953a48a": "{{value0}} テーマのプレビュー",
@@ -7608,7 +7620,9 @@
             "e989914ad6": "フォントファミリー",
             "33031c1465": "文字サイズ",
             "0fe0073f0c": "新規ペインとライブ アップデートのデフォルトの terminal フォント サイズ。",
-            "5930244899": "フォントサイズ"
+            "5930244899": "フォントサイズ",
+            "7f31518ad8": "Zellij Sessions",
+            "7d226a4246": "Run terminal panes inside named Zellij sessions for daemon-kill survival and external attach."
           },
           "windows": {
             "search": {
@@ -8277,7 +8291,10 @@
             "2c417432b7": "ローカルで解決済み",
             "d206117f90": "{{value0}} コンフリクト ({{value1}})",
             "f3a8b2c1d0e5": "{{value0}} のタイトルを入力してください。",
-            "e2b7a1c0d9f4": "{{value0}} の作成に失敗しました"
+            "e2b7a1c0d9f4": "{{value0}} の作成に失敗しました",
+            "hugeRepoIgnorePrompt": "This repository has too many active changes. Add \"{{value0}}\" to .gitignore?",
+            "hugeRepoIgnoreAction": "Add to .gitignore",
+            "tooManyChanges": "Too many changes detected. Only the first {{value0}} are shown."
           },
           "SourceControlAgentActionDialog": {
             "8e856842d1": "選択した agent を開始できませんでした。",

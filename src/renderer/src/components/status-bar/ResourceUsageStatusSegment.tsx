@@ -50,6 +50,7 @@ import {
   type UnifiedWorktreeRow
 } from './mergeSnapshotAndSessions'
 import { WorkspaceSpaceCompactPanel } from './WorkspaceSpaceCompactPanel'
+import { ZellijSessionsPanel } from './ZellijSessionsPanel'
 import { STATUS_BAR_CONTEXT_MENU_EXEMPT_PROPS } from './status-bar-context-menu-policy'
 import {
   isResourceSessionActivationKey,
@@ -1636,6 +1637,11 @@ export function ResourceUsageStatusSegment({
             ) : null}
           </div>
         ) : null}
+
+        {/* Why: Orca-spawned Zellij sessions live in the Zellij server, not the
+            PTY daemon, so they are surfaced here for both local and runtime
+            (remote client) modes. The panel hides itself when there are none. */}
+        <ZellijSessionsPanel onResumed={() => setOpen(false)} />
 
         {!runtimeEnvironmentActive ? (
           <WorkspaceSpaceCompactPanel onOpenFullPage={openSpaceResults} />

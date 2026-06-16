@@ -98,6 +98,7 @@ import {
 import { isWslUncPath } from '../../../../shared/wsl-paths'
 import {
   buildZellijSessionName,
+  commandAlreadyInvokesZellij,
   wrapLaunchCommandWithZellij,
   type ZellijCommandAvailability
 } from '../../../../shared/zellij-session-command'
@@ -1806,6 +1807,12 @@ export function connectPanePty(
     const resolveZellijWrappedStartupCommand = async (command: string): Promise<string> => {
       const settings = useAppStore.getState().settings
       if (settings?.terminalUseZellij !== true) {
+        return command
+      }
+      // Why: a command that already invokes zellij (e.g. a Resource Manager
+      // `zellij attach` resume) must run as-is. Wrapping it would nest a second
+      // attach inside a fresh Orca session and hang on a blank terminal.
+      if (commandAlreadyInvokesZellij(command)) {
         return command
       }
       if (!(await window.api.pty.isZellijWrappingAllowed())) {

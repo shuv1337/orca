@@ -784,6 +784,22 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
       close: await runtime.closeTerminal(params.terminal)
     })
   }),
+  // Why: remote Orca clients need to see and manage the host's Orca-spawned
+  // Zellij sessions in the Resource Manager. These live in the host Zellij
+  // server, so they are listed/killed through the host runtime, not PTY RPC.
+  defineMethod({
+    name: 'terminal.zellij.list',
+    params: z.object({}),
+    handler: async (_params, { runtime }) => runtime.listZellijSessions()
+  }),
+  defineMethod({
+    name: 'terminal.zellij.kill',
+    params: z.object({ name: requiredString('Missing Zellij session name') }),
+    handler: async (params, { runtime }) => {
+      await runtime.killZellijSession(params.name)
+      return { killed: true }
+    }
+  }),
   defineMethod({
     name: 'agentTeams.tmuxCompat',
     params: AgentTeamsTmuxCompat,

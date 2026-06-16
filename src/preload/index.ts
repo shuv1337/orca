@@ -711,6 +711,9 @@ const api = {
     isZellijAvailable: (): Promise<boolean> => ipcRenderer.invoke('pty:isZellijAvailable'),
     isZellijWrappingAllowed: (): Promise<boolean> =>
       ipcRenderer.invoke('pty:isZellijWrappingAllowed'),
+    listZellijSessions: () => ipcRenderer.invoke('pty:listZellijSessions'),
+    killZellijSession: (name: string): Promise<void> =>
+      ipcRenderer.invoke('pty:killZellijSession', { name }),
 
     write: (id: string, data: string): void => {
       ipcRenderer.send('pty:write', { id, data })

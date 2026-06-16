@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildZellijSessionName,
+  commandAlreadyInvokesZellij,
   filterZellijPaneEnv,
   kdlStringEscape,
   shouldWrapWithZellij,
@@ -25,6 +26,17 @@ describe('zellij session command', () => {
     const second = buildZellijSessionName({ worktreeId: WORKTREE_ID, stableLeafId: LEAF_B })
 
     expect(first).not.toBe(second)
+  })
+
+  it('detects commands that already invoke zellij so they are not re-wrapped', () => {
+    expect(commandAlreadyInvokesZellij("zellij attach 'orca-feature-abc123'")).toBe(true)
+    expect(commandAlreadyInvokesZellij('  zellij ')).toBe(true)
+    expect(commandAlreadyInvokesZellij('ORCA_X=1 zellij attach foo')).toBe(true)
+    expect(commandAlreadyInvokesZellij('true && zellij attach foo')).toBe(true)
+    expect(commandAlreadyInvokesZellij('claude')).toBe(false)
+    expect(commandAlreadyInvokesZellij('echo zellij')).toBe(false)
+    expect(commandAlreadyInvokesZellij(undefined)).toBe(false)
+    expect(commandAlreadyInvokesZellij('')).toBe(false)
   })
 
   it('detects existing Zellij nesting even when ZELLIJ is 0', () => {

@@ -67,11 +67,11 @@ import { isHostCodexHomeForWsl, isWslCodexHomeForHost } from '../pty/codex-home-
 import { buildConfiguredProxyEnv, type NetworkProxySettings } from '../../shared/network-proxy'
 import { parseWorkspaceKey } from '../../shared/workspace-scope'
 import {
-  buildZellijSessionName,
   shouldWrapWithZellij,
-  wrapLaunchCommandWithZellij,
   type ZellijCommandAvailability
 } from '../../shared/zellij-session-command'
+import { buildZellijSpawnCommand } from '../pty/zellij-spawn-command'
+import { killZellijSession, listZellijSessions } from '../pty/zellij-session-control'
 import {
   assertFolderWorkspacePathUsable,
   getFolderWorkspacePathStatus
@@ -1079,6 +1079,8 @@ export function registerPtyHandlers(
   ipcMain.removeHandler('pty:resetRendererDeliveryDebug')
   ipcMain.removeHandler('pty:isZellijAvailable')
   ipcMain.removeHandler('pty:isZellijWrappingAllowed')
+  ipcMain.removeHandler('pty:listZellijSessions')
+  ipcMain.removeHandler('pty:killZellijSession')
   ipcMain.removeHandler('pty:writeAccepted')
   ipcMain.removeAllListeners('pty:write')
   ipcMain.removeAllListeners('pty:ackColdRestore')
@@ -1777,6 +1779,38 @@ export function registerPtyHandlers(
           : undefined
       }
 
+      // Why: runtime/CLI host spawns (the path a remote Orca client uses to open
+      // terminals on the host) must wrap with Zellij the same way the renderer
+      // `pty:spawn` handler does. Without this a remote client's fresh panes were
+      // never put inside a Zellij session and hung as blank shells. Uses the same
+      // shared gate so SSH/renderer-delivered paths stay excluded.
+      if (getSettings?.()?.terminalUseZellij === true && args.worktreeId && args.leafId) {
+        const availability = await resolveZellijAvailability({
+          isSsh: Boolean(args.connectionId),
+          isWsl:
+            !args.connectionId &&
+            process.platform === 'win32' &&
+            shouldSkipCodexHomeEnvForWindowsShell(daemonShellOverride, args.cwd),
+          isLinuxLocal: !args.connectionId && process.platform === 'linux'
+        })
+        const wrapped = buildZellijSpawnCommand({
+          useZellij: true,
+          hostEnv: process.env,
+          worktreeId: args.worktreeId,
+          leafId: args.leafId,
+          connectionId: args.connectionId,
+          command: args.command,
+          sessionId,
+          availability,
+          cwd: args.cwd,
+          paneEnv: env,
+          shellCommand: daemonShellOverride ?? (await provider.getDefaultShell())
+        })
+        if (wrapped !== null) {
+          spawnOptions.command = wrapped
+        }
+      }
+
       let result: PtySpawnResult
       try {
         if (args.preAllocatedHandle) {
@@ -2057,6 +2091,26 @@ export function registerPtyHandlers(
     async () => process.platform === 'linux' && (await probeLocalZellijAvailable())
   )
   ipcMain.handle('pty:isZellijWrappingAllowed', () => shouldWrapWithZellij(process.env))
+
+  // Why: the Resource Manager surfaces Orca-spawned Zellij sessions, which live
+  // in the Zellij server rather than the PTY daemon, so they are queried via the
+  // zellij binary. Non-Linux hosts have no local zellij; return empty there.
+  ipcMain.handle('pty:listZellijSessions', async () => {
+    if (process.platform !== 'linux') {
+      return []
+    }
+    try {
+      return await listZellijSessions()
+    } catch {
+      return []
+    }
+  })
+  ipcMain.handle('pty:killZellijSession', async (_event, args: { name?: unknown }) => {
+    if (typeof args?.name !== 'string') {
+      throw new Error('Missing Zellij session name')
+    }
+    await killZellijSession(args.name)
+  })
 
   ipcMain.handle(
     'pty:spawn',
@@ -2362,12 +2416,7 @@ export function registerPtyHandlers(
           ? (getSettings()?.terminalWindowsPowerShellImplementation ?? 'auto')
           : undefined
       }
-      if (
-        getSettings?.()?.terminalUseZellij === true &&
-        args.worktreeId &&
-        validatedLeafId &&
-        shouldWrapWithZellij(process.env)
-      ) {
+      if (getSettings?.()?.terminalUseZellij === true && args.worktreeId && validatedLeafId) {
         const availability = await resolveZellijAvailability({
           isSsh: Boolean(args.connectionId),
           isWsl:
@@ -2376,36 +2425,28 @@ export function registerPtyHandlers(
             shouldSkipCodexHomeEnvForWindowsShell(effectiveShellOverride, args.cwd),
           isLinuxLocal: !args.connectionId && process.platform === 'linux'
         })
-        // Why: only wrap spawns the provider actually executes here. SSH spawns
-        // pass `command` to the relay purely as an overlay-resolution hint
-        // (ssh-pty-provider treats it as a hint, never runs it), and
-        // terminal-paste spawns get their startup command typed in by the
-        // renderer after shell-ready. Wrapping either would corrupt the SSH hint
-        // or nest a second `zellij attach` inside the session the renderer just
-        // opened. Both of those paths are wrapped exclusively by the renderer in
-        // pty-connection.ts.
-        if (
-          availability &&
-          !args.connectionId &&
-          !args.startupCommandDeliveredByRenderer &&
-          (args.command !== undefined || args.sessionId === undefined)
-        ) {
-          const sessionName = buildZellijSessionName({
-            worktreeId: args.worktreeId,
-            stableLeafId: validatedLeafId
-          })
-          // Why: blank panes need a startup command too; otherwise the provider
-          // would leave the shell outside the named Zellij session.
-          spawnOptions.command = wrapLaunchCommandWithZellij({
-            originalCommand: args.command,
-            sessionName,
-            cwd: args.cwd,
-            env: spawnEnv,
-            availability,
-            // Why: thread the user's resolved shell so the layout's login-shell
-            // sources their profile chain (PATH/NODE_OPTIONS) before exec.
-            shellCommand: effectiveShellOverride ?? (await provider.getDefaultShell())
-          })
+        // Why: the gate and command form are shared with the runtime host spawn
+        // (ptyController.spawn) so a remote Orca client's terminals wrap the same
+        // way local ones do. SSH/terminal-paste paths are excluded inside the
+        // shared gate and wrapped by the renderer instead.
+        const wrapped = buildZellijSpawnCommand({
+          useZellij: true,
+          hostEnv: process.env,
+          worktreeId: args.worktreeId,
+          leafId: validatedLeafId,
+          connectionId: args.connectionId,
+          command: args.command,
+          sessionId: args.sessionId,
+          startupCommandDeliveredByRenderer: args.startupCommandDeliveredByRenderer,
+          availability,
+          cwd: args.cwd,
+          paneEnv: spawnEnv,
+          // Why: thread the user's resolved shell so the layout's login-shell
+          // sources their profile chain (PATH/NODE_OPTIONS) before exec.
+          shellCommand: effectiveShellOverride ?? (await provider.getDefaultShell())
+        })
+        if (wrapped !== null) {
+          spawnOptions.command = wrapped
         }
       }
       let result: PtySpawnResult

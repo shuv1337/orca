@@ -25,6 +25,7 @@ import type {
   WorkspaceSessionState
 } from '../../../shared/types'
 import type { SkillDiscoveryResult } from '../../../shared/skills'
+import type { ZellijSessionInfo } from '../../../shared/zellij-session-list'
 import {
   getDefaultOnboardingState,
   getDefaultSettings,
@@ -2296,6 +2297,13 @@ function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
     // Why: the web client has no local PTYs, so Zellij wrapping can never apply.
     isZellijAvailable: () => Promise.resolve(false),
     isZellijWrappingAllowed: () => Promise.resolve(true),
+    // Why: Zellij sessions live on the runtime host; route listing/killing over
+    // RPC so the web Resource Manager can see and manage host-owned sessions.
+    listZellijSessions: () =>
+      callRuntimeResult<ZellijSessionInfo[]>('terminal.zellij.list').catch(() => []),
+    killZellijSession: async (name: string) => {
+      await callRuntimeResult('terminal.zellij.kill', { name })
+    },
     write: () => {},
     writeAccepted: () => Promise.resolve(false),
     resize: () => {},

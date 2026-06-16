@@ -40,6 +40,20 @@ export function shouldWrapWithZellij(env: Record<string, string | undefined> = {
   return !('ZELLIJ' in env) && !('ZELLIJ_SESSION_NAME' in env)
 }
 
+// Why: an explicit `zellij` command (e.g. a Resource Manager `zellij attach`
+// resume, or anything a user typed) must never be re-wrapped. Wrapping it would
+// nest a second attach inside a fresh Orca-managed session and hang on a blank
+// terminal. Matches a leading `zellij` token, ignoring leading env assignments.
+const ZELLIJ_INVOCATION_RE =
+  /(?:^|[;&|]|\b(?:then|do|else)\s)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*zellij(?:\s|$)/
+
+export function commandAlreadyInvokesZellij(command: string | undefined | null): boolean {
+  if (!command) {
+    return false
+  }
+  return ZELLIJ_INVOCATION_RE.test(command.trim())
+}
+
 export function buildZellijSessionName({
   worktreeId,
   stableLeafId

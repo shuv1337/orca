@@ -130,6 +130,8 @@ import { buildSetupRunnerCommand } from '../../shared/setup-runner-command'
 import { TASK_PROVIDERS } from '../../shared/task-providers'
 import { FIRST_PANE_ID } from '../../shared/pane-key'
 import { isTerminalLeafId, makePaneKey, parsePaneKey } from '../../shared/stable-pane-id'
+import type { ZellijSessionInfo } from '../../shared/zellij-session-list'
+import { killZellijSession, listZellijSessions } from '../pty/zellij-session-control'
 import { parseAppSshPtyId } from '../../shared/ssh-pty-id'
 import { isValidHostTerminalTabId } from '../../shared/terminal-tab-id'
 import { buildAgentDraftLaunchPlan, buildAgentStartupPlan } from '../../shared/tui-agent-startup'
@@ -12254,6 +12256,23 @@ export class OrcaRuntimeService {
       this.notifier?.closeTerminal(leaf.tabId, leaf.paneRuntimeId)
     }
     return { handle, tabId: leaf.tabId, ptyKilled }
+  }
+
+  // Why: surfaces the host's Orca-spawned Zellij sessions to remote clients'
+  // Resource Manager. Returns an empty list off-Linux or when zellij is absent.
+  async listZellijSessions(): Promise<ZellijSessionInfo[]> {
+    if (process.platform !== 'linux') {
+      return []
+    }
+    try {
+      return await listZellijSessions()
+    } catch {
+      return []
+    }
+  }
+
+  async killZellijSession(name: string): Promise<void> {
+    await killZellijSession(name)
   }
 
   async splitTerminal(

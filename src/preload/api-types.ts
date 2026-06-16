@@ -8,6 +8,7 @@ import type {
   HostedReviewInfo
 } from '../shared/hosted-review'
 import type { NativeFileDropPayload } from '../shared/native-file-drop'
+import type { ZellijSessionInfo } from '../shared/zellij-session-list'
 import type { AppIdentity } from '../shared/app-identity'
 import type { TerminalPaneSplitSource } from '../shared/feature-education-telemetry'
 import type { TaskSourceContext } from '../shared/task-source-context'
@@ -1026,6 +1027,8 @@ export type PreloadApi = {
     }>
     isZellijAvailable: () => Promise<boolean>
     isZellijWrappingAllowed: () => Promise<boolean>
+    listZellijSessions: () => Promise<ZellijSessionInfo[]>
+    killZellijSession: (name: string) => Promise<void>
     write: (id: string, data: string) => void
     writeAccepted: (id: string, data: string) => Promise<boolean>
     resize: (id: string, cols: number, rows: number) => void
