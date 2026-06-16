@@ -58,6 +58,7 @@
   --color-worktree-sidebar-accent-foreground: var(--worktree-sidebar-accent-foreground);
   --color-worktree-sidebar-border: var(--worktree-sidebar-border);
   --color-worktree-sidebar-ring: var(--worktree-sidebar-ring);
+  --color-worktree-sidebar-selection-ring: var(--worktree-sidebar-selection-ring);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
@@ -149,6 +150,9 @@
   --worktree-sidebar-accent-foreground: #171717;
   --worktree-sidebar-border: #e5e5e5;
   --worktree-sidebar-ring: #a1a1a1;
+  /* Why: multi-select halo stays cool blue so amber reads only as
+     "unread/attention", never as "selected". */
+  --worktree-sidebar-selection-ring: var(--color-blue-600);
   --sidebar: #fafafa;
   --sidebar-foreground: #0a0a0a;
   --sidebar-primary: #171717;
@@ -232,6 +236,9 @@
   --worktree-sidebar-accent-foreground: #ffc85f;
   --worktree-sidebar-border: rgb(255 255 255 / 0.1);
   --worktree-sidebar-ring: #f3b042;
+  /* Why: multi-select halo stays night-owl blue so amber reads only as
+     "unread/attention", never as "selected". */
+  --worktree-sidebar-selection-ring: #82aaff;
   --sidebar: #011627; /* night-owl pane navy */
   --sidebar-foreground: #89a4bb; /* night-owl sideBar.foreground */
   --sidebar-primary: #f3b042; /* amber accent */
@@ -1211,6 +1218,20 @@
   .compact-agent-summary-panel {
     transition-duration: 0ms;
   }
+}
+
+/* Why: the small amber bell alone is easy to miss, so an unread workspace also
+   gets a persistent amber edge. Drawn as a ::after overlay (reveal-glow owns
+   ::before) so it never fights the selection border/ring for precedence. */
+.worktree-card-unread-emphasis::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border: 1.5px solid color-mix(in srgb, var(--color-amber-500) 70%, transparent);
+  border-radius: inherit;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-amber-500) 28%, transparent);
 }
 
 .scroll-to-current-workspace-reveal-highlight {
