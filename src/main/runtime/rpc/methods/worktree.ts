@@ -179,11 +179,12 @@ export const WORKTREE_METHODS: RpcMethod[] = [
     name: 'worktree.rm',
     params: WorktreeRemove,
     handler: async (params, { runtime }) => {
-      const result = await runtime.removeManagedWorktree(
-        params.worktree,
-        params.force === true,
-        params.runHooks === true
-      )
+      const result = await runtime.removeManagedWorktree(params.worktree, {
+        force: params.force === true,
+        runHooks: params.runHooks === true,
+        deleteZellijSessionsOnSuccess: params.deleteZellijSessionsOnSuccess === true,
+        zellijSessionNames: params.zellijSessionNames
+      })
       return { removed: true, ...result }
     }
   }),

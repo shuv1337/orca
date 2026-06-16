@@ -131,7 +131,14 @@ import { TASK_PROVIDERS } from '../../shared/task-providers'
 import { FIRST_PANE_ID } from '../../shared/pane-key'
 import { isTerminalLeafId, makePaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import type { ZellijSessionInfo } from '../../shared/zellij-session-list'
-import { killZellijSession, listZellijSessions } from '../pty/zellij-session-control'
+import type { ZellijSessionDeleteResult } from '../../shared/zellij-session-delete'
+import {
+  cleanupZellijSessionsAfterWorktreeRemoval,
+  killZellijSession,
+  killZellijSessions,
+  listZellijSessions
+} from '../pty/zellij-session-control'
+import { createSshZellijSessionExecutor } from '../pty/zellij-session-ssh'
 import { parseAppSshPtyId } from '../../shared/ssh-pty-id'
 import { isValidHostTerminalTabId } from '../../shared/terminal-tab-id'
 import { buildAgentDraftLaunchPlan, buildAgentStartupPlan } from '../../shared/tui-agent-startup'
@@ -1034,8 +1041,22 @@ type PreservedBranchCleanupTarget = {
   pushTarget?: GitPushTarget
 }
 
-function getRuntimeWorktreeRemovalOptionsKey(force: boolean, runHooks: boolean): string {
-  return `${force ? 'force' : 'normal'}:${runHooks ? 'run-hooks' : 'skip-hooks'}`
+type RemoveManagedWorktreeOptions = {
+  force?: boolean
+  runHooks?: boolean
+  deleteZellijSessionsOnSuccess?: boolean
+  zellijSessionNames?: string[]
+}
+
+function getRuntimeWorktreeRemovalOptionsKey(options: RemoveManagedWorktreeOptions): string {
+  const forceKey = options.force === true ? 'force' : 'normal'
+  const hooksKey = options.runHooks === true ? 'run-hooks' : 'skip-hooks'
+  const zellijNames = options.zellijSessionNames ?? []
+  const zellijKey =
+    options.deleteZellijSessionsOnSuccess === true
+      ? `zellij:on:${[...zellijNames].sort().join('\u0001')}`
+      : 'zellij:off'
+  return `${forceKey}:${hooksKey}:${zellijKey}`
 }
 
 function getRuntimeFolderWorkspaceRootId(repo: Repo): string {
@@ -11255,15 +11276,18 @@ export class OrcaRuntimeService {
 
   async removeManagedWorktree(
     worktreeSelector: string,
-    force = false,
-    runHooks = false
+    options: RemoveManagedWorktreeOptions = {}
   ): Promise<RemoveWorktreeResult & { warning?: string }> {
     if (!this.store) {
       throw new Error('runtime_unavailable')
     }
     const store = this.store
+    const force = options.force === true
+    const runHooks = options.runHooks === true
+    const deleteZellijSessionsOnSuccess = options.deleteZellijSessionsOnSuccess === true
+    const zellijSessionNames = options.zellijSessionNames
     const removalTarget = await this.resolveWorktreeRemovalTarget(worktreeSelector)
-    const optionsKey = getRuntimeWorktreeRemovalOptionsKey(force, runHooks)
+    const optionsKey = getRuntimeWorktreeRemovalOptionsKey(options)
     const inFlightRemoval = this.removeManagedWorktreeInFlight.get(removalTarget.id)
     if (inFlightRemoval) {
       if (inFlightRemoval.optionsKey === optionsKey) {
@@ -11278,6 +11302,23 @@ export class OrcaRuntimeService {
       const repo = store.getRepo(removalTarget.repoId)
       if (!repo) {
         throw new Error('repo_not_found')
+      }
+      const finalizeRemoval = async (
+        result: RemoveWorktreeResult & { warning?: string } = {}
+      ): Promise<RemoveWorktreeResult & { warning?: string }> => {
+        const zellijWarning = await cleanupZellijSessionsAfterWorktreeRemoval({
+          deleteZellijSessionsOnSuccess,
+          zellijSessionNames,
+          connectionId: repo.connectionId ?? null,
+          createSshExecutor: createSshZellijSessionExecutor
+        })
+        if (!zellijWarning) {
+          return result
+        }
+        return {
+          ...result,
+          warning: result.warning ? `${result.warning}; ${zellijWarning}` : zellijWarning
+        }
       }
       if (isFolderRepo(repo)) {
         if (removalTarget.id === getRuntimeFolderWorkspaceRootId(repo)) {
@@ -11301,7 +11342,7 @@ export class OrcaRuntimeService {
         this.preservedBranchCleanupByWorktreeId.delete(removalTarget.id)
         this.invalidateResolvedWorktreeCache()
         this.notifyWorktreesChanged(repo.id)
-        return {}
+        return finalizeRemoval()
       }
       const provider = repo.connectionId ? requireSshGitProvider(repo.connectionId) : null
       const fsProvider = repo.connectionId ? getSshFilesystemProvider(repo.connectionId) : null
@@ -11375,7 +11416,7 @@ export class OrcaRuntimeService {
           this.invalidateResolvedWorktreeCache()
           invalidateAuthorizedRootsCache()
           this.notifyWorktreesChanged(repo.id)
-          return {}
+          return finalizeRemoval()
         }
         if (await isRuntimeWorktreePathMissing(repo, removalTarget.path)) {
           if (!force && !removedMeta) {
@@ -11406,7 +11447,7 @@ export class OrcaRuntimeService {
           this.invalidateResolvedWorktreeCache()
           invalidateAuthorizedRootsCache()
           this.notifyWorktreesChanged(repo.id)
-          return {}
+          return finalizeRemoval()
         }
         throw new Error(`Refusing to delete unregistered worktree path: ${removalTarget.path}`)
       }
@@ -11438,7 +11479,7 @@ export class OrcaRuntimeService {
         this.invalidateResolvedWorktreeCache()
         invalidateAuthorizedRootsCache()
         this.notifyWorktreesChanged(repo.id)
-        return removalResult ?? {}
+        return finalizeRemoval(removalResult ?? {})
       }
 
       const hooks = getEffectiveHooks(repo)
@@ -11528,9 +11569,9 @@ export class OrcaRuntimeService {
           this.invalidateResolvedWorktreeCache()
           invalidateAuthorizedRootsCache()
           this.notifyWorktreesChanged(repo.id)
-          return {
+          return finalizeRemoval({
             ...(warning ? { warning } : {})
-          }
+          })
         }
         throw new Error(formatWorktreeRemovalError(error, canonicalWorktreePath, force))
       }
@@ -11552,10 +11593,10 @@ export class OrcaRuntimeService {
       this.invalidateResolvedWorktreeCache()
       invalidateAuthorizedRootsCache()
       this.notifyWorktreesChanged(repo.id)
-      return {
+      return finalizeRemoval({
         ...removalResult,
         ...(warning ? { warning } : {})
-      }
+      })
     })()
     this.removeManagedWorktreeInFlight.set(removalTarget.id, { optionsKey, promise: removal })
     try {
@@ -12273,6 +12314,13 @@ export class OrcaRuntimeService {
 
   async killZellijSession(name: string): Promise<void> {
     await killZellijSession(name)
+  }
+
+  async killZellijSessions(names: readonly string[]): Promise<ZellijSessionDeleteResult> {
+    if (process.platform !== 'linux') {
+      return { deleted: [], failed: [] }
+    }
+    return killZellijSessions(names)
   }
 
   async splitTerminal(

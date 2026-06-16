@@ -70,5 +70,23 @@ export const getTerminalZellijSessionSearchEntry = createLocalizedCatalog(() => 
       ...translateSearchKeyword('auto.components.settings.terminal.search.6a5a9b4a6a', 'attach'),
       ...translateSearchKeyword('auto.components.settings.terminal.search.dd3c22889c', 'ssh')
     ]
+  },
+  {
+    title: translate(
+      'auto.components.settings.terminal.search.zellij_cleanup_title',
+      'Delete Zellij Sessions on Workspace Delete'
+    ),
+    description: translate(
+      'auto.components.settings.terminal.search.zellij_cleanup_description',
+      'After a workspace delete succeeds, remove Orca-managed Zellij sessions derived from that workspace.'
+    ),
+    keywords: [
+      ...translateSearchKeyword('auto.components.settings.terminal.search.e1e8d520f7', 'zellij'),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.3f1c4c26f8', 'session'),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.cleanup', 'cleanup'),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.delete', 'delete'),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.worktree', 'worktree'),
+      ...translateSearchKeyword('auto.components.settings.terminal.search.workspace', 'workspace')
+    ]
   }
 ])

@@ -2339,7 +2339,13 @@ describe('worktree remote runtime mutations', () => {
     expect(runtimeEnvironmentCall).toHaveBeenCalledWith({
       selector: 'env-1',
       method: 'worktree.rm',
-      params: { worktree: `id:${wt.id}`, force: undefined, runHooks: true },
+      params: {
+        worktree: `id:${wt.id}`,
+        force: undefined,
+        runHooks: true,
+        deleteZellijSessionsOnSuccess: false,
+        zellijSessionNames: undefined
+      },
       timeoutMs: 60_000
     })
     expect(mockApi.worktrees.remove).not.toHaveBeenCalled()
@@ -2374,7 +2380,9 @@ describe('worktree remote runtime mutations', () => {
     expect(mockApi.worktrees.remove).toHaveBeenCalledWith({
       worktreeId: wt.id,
       force: undefined,
-      skipArchive: false
+      skipArchive: false,
+      deleteZellijSessionsOnSuccess: false,
+      zellijSessionNames: undefined
     })
     expect(runtimeEnvironmentCall).not.toHaveBeenCalled()
     expect(store.getState().worktreesByRepo['repo-ssh']).toEqual([])

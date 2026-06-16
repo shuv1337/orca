@@ -1,52 +1,65 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildZellijAttachCommand,
-  deriveZellijSessionLabel,
-  toZellijSessionDisplayRows,
-  zellijSessionStatusLabel
+  countZellijSessionsByStatus,
+  filterZellijSessionNamesBySelection,
+  getAllZellijSessionNames,
+  getExitedZellijSessionNames,
+  shouldConfirmBulkZellijDelete,
+  type ZellijSessionDisplayRow
 } from './zellij-session-display'
-import type { ZellijSessionInfo } from '../../../../shared/zellij-session-list'
 
-function session(overrides: Partial<ZellijSessionInfo>): ZellijSessionInfo {
+function row(name: string, exited = false): ZellijSessionDisplayRow {
   return {
-    name: 'orca-feature-abc123',
-    createdLabel: '1h ago',
-    exited: false,
+    name,
+    label: name,
+    statusLabel: exited ? 'Exited' : 'Running',
+    exited,
     current: false,
-    orcaManaged: true,
-    ...overrides
+    attachCommand: `zellij attach '${name}'`
   }
 }
 
-describe('zellij session display', () => {
-  it('derives a readable label from the Orca name scheme', () => {
-    expect(deriveZellijSessionLabel('orca-latitudes-gateway-0te0s1u')).toBe('latitudes gateway')
-    expect(deriveZellijSessionLabel('weird-name')).toBe('weird-name')
-  })
+describe('zellij session bulk helpers', () => {
+  const rows = [row('orca-a-111'), row('orca-b-222', true), row('orca-c-333')]
 
-  it('labels status by current/exited/running', () => {
-    expect(zellijSessionStatusLabel(session({ current: true }))).toBe('Attached')
-    expect(zellijSessionStatusLabel(session({ exited: true }))).toBe('Exited')
-    expect(zellijSessionStatusLabel(session({}))).toBe('Running')
-  })
-
-  it('builds a safely quoted attach command', () => {
-    expect(buildZellijAttachCommand('orca-feature-abc123')).toBe(
-      "zellij attach 'orca-feature-abc123'"
-    )
-  })
-
-  it('filters to Orca-managed sessions and sorts running before exited', () => {
-    const rows = toZellijSessionDisplayRows([
-      session({ name: 'orca-zeta-111', exited: true }),
-      session({ name: 'bare', orcaManaged: false }),
-      session({ name: 'orca-alpha-222' }),
-      session({ name: 'orca-beta-333' })
+  it('filters selected/all/exited names', () => {
+    const selected = new Set(['orca-a-111', 'orca-c-333'])
+    expect(filterZellijSessionNamesBySelection(rows, selected)).toEqual([
+      'orca-a-111',
+      'orca-c-333'
     ])
-    expect(rows.map((row) => row.name)).toEqual([
-      'orca-alpha-222',
-      'orca-beta-333',
-      'orca-zeta-111'
-    ])
+    expect(getAllZellijSessionNames(rows)).toEqual(['orca-a-111', 'orca-b-222', 'orca-c-333'])
+    expect(getExitedZellijSessionNames(rows)).toEqual(['orca-b-222'])
+  })
+
+  it('counts running and exited sessions', () => {
+    expect(countZellijSessionsByStatus(rows)).toEqual({
+      total: 3,
+      running: 2,
+      exited: 1
+    })
+  })
+
+  it('requires confirmation for multi-delete and delete-all with running sessions', () => {
+    expect(
+      shouldConfirmBulkZellijDelete({
+        targetNames: ['orca-a-111', 'orca-c-333'],
+        rows
+      })
+    ).toBe(true)
+    expect(
+      shouldConfirmBulkZellijDelete({
+        targetNames: ['orca-b-222'],
+        rows,
+        deleteAllIncludesRunning: true
+      })
+    ).toBe(false)
+    expect(
+      shouldConfirmBulkZellijDelete({
+        targetNames: ['orca-a-111'],
+        rows,
+        deleteAllIncludesRunning: true
+      })
+    ).toBe(true)
   })
 })

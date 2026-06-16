@@ -8,6 +8,7 @@ import { glApi } from './gitlab'
 import type { AppIdentity } from '../shared/app-identity'
 import type { CliInstallStatus } from '../shared/cli-install-types'
 import type { AgentHookInstallStatus } from '../shared/agent-hook-types'
+import type { ZellijSessionDeleteResult } from '../shared/zellij-session-delete'
 import type { TerminalPaneSplitSource } from '../shared/feature-education-telemetry'
 import type {
   BaseRefSearchResult,
@@ -714,6 +715,8 @@ const api = {
     listZellijSessions: () => ipcRenderer.invoke('pty:listZellijSessions'),
     killZellijSession: (name: string): Promise<void> =>
       ipcRenderer.invoke('pty:killZellijSession', { name }),
+    killZellijSessions: (names: string[]): Promise<ZellijSessionDeleteResult> =>
+      ipcRenderer.invoke('pty:killZellijSessions', { names }),
 
     write: (id: string, data: string): void => {
       ipcRenderer.send('pty:write', { id, data })

@@ -1924,6 +1924,8 @@ export type PreservedWorktreeBranch = {
 
 export type RemoveWorktreeResult = {
   preservedBranch?: PreservedWorktreeBranch
+  /** Best-effort post-delete cleanup warning (for example partial Zellij session cleanup). */
+  warning?: string
 }
 
 export type ForceDeleteWorktreeBranchResult = {
@@ -2366,6 +2368,9 @@ export type GlobalSettings = {
   /** Why: Zellij is an opt-in Linux/SSH durability layer. Keep it disabled by
    *  default so terminal launches do not depend on host-local multiplexer state. */
   terminalUseZellij: boolean
+  /** Why: optional cleanup of Orca-managed Zellij sessions after a workspace
+   *  delete succeeds. Off by default; only exact derived session names are removed. */
+  terminalDeleteZellijSessionsOnWorktreeDelete: boolean
   /** Experimental Claude Code Agent Teams integration. Native panes use a
    *  tmux-compatible shim so teammate output stays on Orca's normal PTY path. */
   claudeAgentTeamsMode?: ClaudeAgentTeamsMode

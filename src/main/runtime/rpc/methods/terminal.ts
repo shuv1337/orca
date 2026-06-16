@@ -801,6 +801,13 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
     }
   }),
   defineMethod({
+    name: 'terminal.zellij.killMany',
+    params: z.object({
+      names: z.array(z.string()).min(1).max(256)
+    }),
+    handler: async (params, { runtime }) => runtime.killZellijSessions(params.names)
+  }),
+  defineMethod({
     name: 'agentTeams.tmuxCompat',
     params: AgentTeamsTmuxCompat,
     handler: async (params, { runtime }) => ({

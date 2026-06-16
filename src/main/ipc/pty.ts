@@ -71,7 +71,11 @@ import {
   type ZellijCommandAvailability
 } from '../../shared/zellij-session-command'
 import { buildZellijSpawnCommand } from '../pty/zellij-spawn-command'
-import { killZellijSession, listZellijSessions } from '../pty/zellij-session-control'
+import {
+  killZellijSession,
+  killZellijSessions,
+  listZellijSessions
+} from '../pty/zellij-session-control'
 import {
   assertFolderWorkspacePathUsable,
   getFolderWorkspacePathStatus
@@ -1081,6 +1085,7 @@ export function registerPtyHandlers(
   ipcMain.removeHandler('pty:isZellijWrappingAllowed')
   ipcMain.removeHandler('pty:listZellijSessions')
   ipcMain.removeHandler('pty:killZellijSession')
+  ipcMain.removeHandler('pty:killZellijSessions')
   ipcMain.removeHandler('pty:writeAccepted')
   ipcMain.removeAllListeners('pty:write')
   ipcMain.removeAllListeners('pty:ackColdRestore')
@@ -2110,6 +2115,19 @@ export function registerPtyHandlers(
       throw new Error('Missing Zellij session name')
     }
     await killZellijSession(args.name)
+  })
+  ipcMain.handle('pty:killZellijSessions', async (_event, args: { names?: unknown }) => {
+    if (process.platform !== 'linux') {
+      return { deleted: [], failed: [] }
+    }
+    if (!Array.isArray(args?.names)) {
+      throw new Error('Missing Zellij session names')
+    }
+    if (args.names.length > 256) {
+      throw new Error('Too many Zellij session names')
+    }
+    const names = args.names.filter((name): name is string => typeof name === 'string')
+    return killZellijSessions(names)
   })
 
   ipcMain.handle(

@@ -61,3 +61,46 @@ export function toZellijSessionDisplayRows(
       return a.label.localeCompare(b.label)
     })
 }
+
+export function filterZellijSessionNamesBySelection(
+  rows: readonly ZellijSessionDisplayRow[],
+  selectedNames: ReadonlySet<string>
+): string[] {
+  return rows.filter((row) => selectedNames.has(row.name)).map((row) => row.name)
+}
+
+export function getAllZellijSessionNames(rows: readonly ZellijSessionDisplayRow[]): string[] {
+  return rows.map((row) => row.name)
+}
+
+export function getExitedZellijSessionNames(rows: readonly ZellijSessionDisplayRow[]): string[] {
+  return rows.filter((row) => row.exited).map((row) => row.name)
+}
+
+export function countZellijSessionsByStatus(rows: readonly ZellijSessionDisplayRow[]): {
+  total: number
+  running: number
+  exited: number
+} {
+  const exited = rows.filter((row) => row.exited).length
+  return {
+    total: rows.length,
+    running: rows.length - exited,
+    exited
+  }
+}
+
+export function shouldConfirmBulkZellijDelete(args: {
+  targetNames: readonly string[]
+  rows: readonly ZellijSessionDisplayRow[]
+  deleteAllIncludesRunning?: boolean
+}): boolean {
+  if (args.targetNames.length > 1) {
+    return true
+  }
+  if (args.deleteAllIncludesRunning !== true || args.targetNames.length === 0) {
+    return false
+  }
+  const targetSet = new Set(args.targetNames)
+  return args.rows.some((row) => targetSet.has(row.name) && !row.exited)
+}
