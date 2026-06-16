@@ -59,6 +59,34 @@ describe('source-control AI action recipes', () => {
     })
   })
 
+  it('resolves Pi default-agent branch naming to Pi config default model', () => {
+    const base = settings()
+    base.defaultTuiAgent = 'pi'
+    base.sourceControlAi = {
+      ...base.sourceControlAi!,
+      agentId: null,
+      selectedModelByAgent: {},
+      selectedThinkingByModel: {}
+    }
+
+    expect(
+      resolveSourceControlAiForOperation({
+        settings: base,
+        repo: null,
+        operation: 'branchName',
+        discoveryHostKey: 'local'
+      })
+    ).toMatchObject({
+      ok: true,
+      value: {
+        params: {
+          agentId: 'pi',
+          model: 'default'
+        }
+      }
+    })
+  })
+
   it('treats an explicit action null agent as the default agent, not the global legacy agent', () => {
     const base = settings()
     base.defaultTuiAgent = 'codex'

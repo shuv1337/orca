@@ -381,22 +381,25 @@ export const COMMIT_MESSAGE_AGENT_SPECS: Partial<Record<TuiAgent, CommitMessageA
       '--no-context-files',
       '--mode',
       'text',
-      '--model',
-      model,
-      ...(thinkingLevel ? ['--thinking', thinkingLevel] : [])
+      // Why: Pi users usually configure a preferred provider/model in Pi itself.
+      // Leaving --model unset keeps headless Source Control AI aligned with that config.
+      ...(model && model !== 'default' ? ['--model', model] : []),
+      ...(model && model !== 'default' && thinkingLevel ? ['--thinking', thinkingLevel] : [])
     ],
     modelSource: 'dynamic',
     modelDiscovery: { binary: 'pi', args: ['--list-models'], parse: parsePiModels },
     models: [
       {
-        // Why: Pi commonly authenticates through GitHub Copilot locally; using
-        // that provider avoids selecting a raw OpenAI model when no key exists.
+        id: 'default',
+        label: 'Config default'
+      },
+      {
         id: 'github-copilot/gpt-5.4-mini',
         label: 'Github Copilot GPT 5.4 Mini',
         ...withOpenAiThinking('gpt-5.4-mini')
       }
     ],
-    defaultModelId: 'github-copilot/gpt-5.4-mini'
+    defaultModelId: 'default'
   },
   amp: {
     id: 'amp',

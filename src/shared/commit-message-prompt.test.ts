@@ -170,6 +170,19 @@ describe('extractAgentErrorMessage', () => {
     )
   })
 
+  it('matches plain Pi CLI provider failures without an Error prefix', () => {
+    expect(
+      extractAgentErrorMessage(
+        '',
+        'Warning: No models match pattern "cursor/composer-2-5"\nNo API key for provider: github-copilot\n'
+      )
+    ).toBe('No API key for provider: github-copilot')
+  })
+
+  it('matches plain Pi connection failures without an Error prefix', () => {
+    expect(extractAgentErrorMessage('', 'Connection error.\n')).toBe('Connection error.')
+  })
+
   it('returns null when no ERROR line is present', () => {
     expect(extractAgentErrorMessage('plain log\nmore log\n', '')).toBeNull()
   })

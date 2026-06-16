@@ -151,6 +151,7 @@ describe('CommitMessageAiPane', () => {
     expect(getSourceControlAgentArgsPlaceholder('claude')).toBe('--model sonnet')
     expect(getSourceControlAgentArgsPlaceholder('codex')).toBe('--model gpt-5.4-mini')
     expect(getSourceControlAgentArgsPlaceholder('amp')).toBe('--mode smart')
+    expect(getSourceControlAgentArgsPlaceholder('pi')).toBe('leave blank for Pi config default')
     expect(getSourceControlAgentArgsPlaceholder('aider')).toBe('--model <model>')
   })
 
