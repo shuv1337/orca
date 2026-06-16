@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, app } from 'electron'
+import { BrowserWindow, Menu } from 'electron'
 import {
   formatKeybindingList,
   getEffectiveKeybindingsForAction,
@@ -6,6 +6,7 @@ import {
   type KeybindingOverrides
 } from '../../shared/keybindings'
 import { translateMain } from '../i18n/main-i18n'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/product-brand'
 
 export type AppearanceMenuState = {
   showTasksButton: boolean
@@ -141,7 +142,9 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
   // redundant "Orca" entry with roles that don't apply, so we omit it there
   // and distribute its items across File / Help instead.
   const macAppMenu: Electron.MenuItemConstructorOptions = {
-    label: app.name,
+    // Why: show the display brand, not app.name — app.name stays 'Orca' to keep
+    // the userData path, but the macOS app menu must read shuvorca (ADR-0001).
+    label: PRODUCT_DISPLAY_NAME,
     submenu: [
       { role: 'about' },
       checkForUpdatesItem,

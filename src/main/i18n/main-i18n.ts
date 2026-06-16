@@ -7,6 +7,7 @@ import ja from '../../renderer/src/i18n/locales/ja.json'
 import ko from '../../renderer/src/i18n/locales/ko.json'
 import zh from '../../renderer/src/i18n/locales/zh.json'
 import { isPseudoLocalizationLocale, pseudoLocalizeString } from '../../shared/pseudo-localization'
+import { applyProductBrand, brandResourceTree } from '../../shared/product-brand'
 import { DEFAULT_UI_LOCALE, resolveUiLocale, type SupportedUiLocale } from '../../shared/ui-locale'
 import { UI_LANGUAGE_SYSTEM, type UiLanguage } from '../../shared/ui-language'
 
@@ -27,21 +28,24 @@ export async function ensureMainI18n(): Promise<I18nInstance> {
     await mainI18n.init({
       fallbackLng: DEFAULT_UI_LOCALE,
       lng: DEFAULT_UI_LOCALE,
+      // Why: brand templates at load time (ADR-0002) so interpolation runs on
+      // already-branded strings — branding the resolved output would also
+      // rewrite user-controlled interpolation values like a `fix-Orca` branch.
       resources: {
         en: {
-          translation: en
+          translation: brandResourceTree(en)
         },
         zh: {
-          translation: zh
+          translation: brandResourceTree(zh)
         },
         ko: {
-          translation: ko
+          translation: brandResourceTree(ko)
         },
         ja: {
-          translation: ja
+          translation: brandResourceTree(ja)
         },
         es: {
-          translation: es
+          translation: brandResourceTree(es)
         }
       },
       interpolation: {
@@ -66,9 +70,15 @@ export async function setMainUiLanguage(language: UiLanguage): Promise<Supported
 }
 
 export function translateMain(key: string, fallback: string, options?: TOptions): string {
-  // Why: menu registration can run before async init finishes in tests; fall back
-  // to the English default instead of returning undefined from an uninitialized i18n.
-  const raw = initialized ? mainI18n.t(key, { defaultValue: fallback, ...options }) : fallback
-  const value = typeof raw === 'string' && raw.length > 0 ? raw : fallback
+  // Why: brand the template/default string BEFORE interpolation (ADR-0002) so
+  // the rule never touches interpolated user data (e.g. a `fix-Orca` branch).
+  // Catalog templates are pre-branded at init; the call-time fallback is
+  // branded here. Menu registration can run before async init finishes in
+  // tests, so fall back to the branded default rather than returning undefined.
+  const brandedFallback = applyProductBrand(fallback)
+  const raw = initialized
+    ? mainI18n.t(key, { defaultValue: brandedFallback, ...options })
+    : brandedFallback
+  const value = typeof raw === 'string' && raw.length > 0 ? raw : brandedFallback
   return isPseudoLocalizationLocale(mainI18n.language) ? pseudoLocalizeString(value) : value
 }

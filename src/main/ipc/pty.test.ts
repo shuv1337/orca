@@ -617,13 +617,13 @@ describe('registerPtyHandlers', () => {
       const env = await spawnAndGetEnv()
       expect(env.TERM).toBe('xterm-256color')
       expect(env.COLORTERM).toBe('truecolor')
-      expect(env.TERM_PROGRAM).toBe('Orca')
+      expect(env.TERM_PROGRAM).toBe('shuvorca')
     })
 
     it('advertises OSC 8 hyperlink support via FORCE_HYPERLINK', async () => {
       // Why: the supports-hyperlinks npm package hard-codes a TERM_PROGRAM
       // allowlist (iTerm.app / WezTerm / vscode) and reports false for
-      // TERM_PROGRAM=Orca, so tools like Claude Code emit plain text instead
+      // TERM_PROGRAM=shuvorca, so tools like Claude Code emit plain text instead
       // of ESC]8;; wrappers. Setting FORCE_HYPERLINK=1 forces the detector to
       // return true; xterm.js + our linkHandler handle the sequences natively.
       const env = await spawnAndGetEnv()

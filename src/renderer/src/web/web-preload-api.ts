@@ -1,6 +1,7 @@
 /* eslint-disable max-lines -- Why: the web preload adapter is the browser-side
    replacement for Electron preload, so the compatibility surface is necessarily
    centralized at this boundary. */
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product-brand'
 import type { PreloadApi, PreflightStatus, RefreshAgentsResult } from '../../../preload/api-types'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type {
@@ -413,7 +414,7 @@ function createWebPreloadApi(): Partial<PreloadApi> {
     app: {
       getIdentity: () =>
         Promise.resolve({
-          name: 'Orca',
+          name: PRODUCT_DISPLAY_NAME,
           isDev: false,
           devLabel: null,
           devBranch: null,

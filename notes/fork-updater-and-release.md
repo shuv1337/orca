@@ -4,6 +4,14 @@ This documents the changes that point Orca's auto-updater at the
 `shuv1337/orca` fork and ensure a release publishes macOS (x64 + arm64),
 Windows (x64), and **Linux x64** together.
 
+> **Related:** the surface rebrand to **shuvorca** (display name only; internal
+> `orca` identifiers preserved) is tracked in [`PLAN-shuvorca-rebrand.md`](../PLAN-shuvorca-rebrand.md)
+> and [`GOAL-shuvorca-rebrand.md`](../GOAL-shuvorca-rebrand.md), with rationale in
+> [`docs/adr/0001-v1-preserves-orca-os-identity.md`](../docs/adr/0001-v1-preserves-orca-os-identity.md)
+> and [`docs/adr/0002-runtime-i18n-brand-transform.md`](../docs/adr/0002-runtime-i18n-brand-transform.md).
+> The updater repo (`shuv1337/orca`) and `orca-*` artifact names are intentionally
+> unchanged by the rebrand.
+
 ## What changed
 
 ### 1. Auto-updater now tracks the fork

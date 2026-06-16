@@ -1,6 +1,7 @@
 import { toast } from 'sonner'
 import type { GlobalSettings } from '../../../../shared/types'
 import { translate } from '@/i18n/i18n'
+import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product-brand'
 
 type SystemNotificationSettingsCopy = {
   failureTitle: string
@@ -13,14 +14,14 @@ export function getSystemNotificationSettingsCopy(
   if (platform === 'darwin') {
     return {
       failureTitle: 'macOS did not show the notification',
-      failureDescription: 'Enable Allow notifications for Orca in System Settings.'
+      failureDescription: `Enable Allow notifications for ${PRODUCT_DISPLAY_NAME} in System Settings.`
     }
   }
 
   if (platform === 'win32') {
     return {
       failureTitle: 'Windows did not show the notification',
-      failureDescription: 'Enable notifications for Orca in Windows Settings.'
+      failureDescription: `Enable notifications for ${PRODUCT_DISPLAY_NAME} in Windows Settings.`
     }
   }
 

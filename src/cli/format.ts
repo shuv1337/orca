@@ -1,5 +1,6 @@
 import type { CliStatusResult } from '../shared/runtime-types'
 import { computerUseErrorRecoveryData } from '../shared/computer-use-error-recovery'
+import { cliCommandName, PRODUCT_DISPLAY_NAME } from '../shared/product-brand'
 import { prepareComputerCliJsonResult } from './computer-format'
 import type { RuntimeRpcFailure, RuntimeRpcSuccess } from './runtime-client'
 import { RuntimeClientError, RuntimeRpcFailureError } from './runtime-client'
@@ -78,7 +79,7 @@ export function printResult<TResult>(
 export function formatCliError(error: unknown, context: CliErrorContext = {}): string {
   const message = error instanceof Error ? error.message : String(error)
   if (error instanceof RuntimeClientError && error.code === 'runtime_unavailable') {
-    return `${message}\nOrca is not running. Run 'orca open' first.`
+    return `${message}\n${PRODUCT_DISPLAY_NAME} is not running. Run '${cliCommandName()} open' first.`
   }
   if (
     error instanceof RuntimeClientError &&
@@ -94,7 +95,7 @@ export function formatCliError(error: unknown, context: CliErrorContext = {}): s
     error instanceof RuntimeRpcFailureError &&
     error.response.error.code === 'runtime_unavailable'
   ) {
-    return `${message}\nOrca is not running. Run 'orca open' first.`
+    return `${message}\n${PRODUCT_DISPLAY_NAME} is not running. Run '${cliCommandName()} open' first.`
   }
   if (error instanceof RuntimeRpcFailureError) {
     const data = error.response.error.data

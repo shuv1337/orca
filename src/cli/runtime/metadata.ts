@@ -7,6 +7,7 @@ import {
   type RuntimeMetadata
 } from '../../shared/runtime-bootstrap'
 import { RuntimeClientError } from './types'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/product-brand'
 
 export function readMetadata(userDataPath: string): RuntimeMetadata {
   const metadataPath = getRuntimeMetadataPath(userDataPath)
@@ -15,7 +16,7 @@ export function readMetadata(userDataPath: string): RuntimeMetadata {
     if (!metadata || !findTransport(metadata, 'unix', 'named-pipe') || !metadata.authToken) {
       throw new RuntimeClientError(
         'runtime_unavailable',
-        `Orca runtime metadata is incomplete at ${metadataPath}`
+        `${PRODUCT_DISPLAY_NAME} runtime metadata is incomplete at ${metadataPath}`
       )
     }
     return metadata
@@ -25,7 +26,7 @@ export function readMetadata(userDataPath: string): RuntimeMetadata {
     }
     throw new RuntimeClientError(
       'runtime_unavailable',
-      `Could not read Orca runtime metadata at ${metadataPath}. Start the Orca app first.`
+      `Could not read ${PRODUCT_DISPLAY_NAME} runtime metadata at ${metadataPath}. Start the ${PRODUCT_DISPLAY_NAME} app first.`
     )
   }
 }
@@ -58,7 +59,7 @@ export function getDefaultUserDataPath(
     if (!appData) {
       throw new RuntimeClientError(
         'runtime_unavailable',
-        'APPDATA is not set, so the Orca runtime metadata path cannot be resolved.'
+        `APPDATA is not set, so the ${PRODUCT_DISPLAY_NAME} runtime metadata path cannot be resolved.`
       )
     }
     return join(appData, 'orca')

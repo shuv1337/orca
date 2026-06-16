@@ -1,6 +1,25 @@
 /* eslint-disable max-lines -- Why: root and generated command help text live together so CLI discovery stays greppable. */
 import type { CommandSpec } from './args'
 import { findCommandSpec, isCommandGroup, supportsBrowserPageFlag } from './args'
+import { cliCommandName, PRODUCT_DISPLAY_NAME } from '../shared/product-brand'
+
+// Why: help text is authored with the `orca` command and `Orca` product name,
+// but the installed Linux binary is `orca-ide` (D8). Brand the final output once
+// at the print boundary so an agent reading `--help` copies the right command.
+// Applied exactly once (printHelp) — re-running would corrupt `orca-ide`.
+function brandHelp(text: string): string {
+  const command = cliCommandName()
+  // Rewrite `orca` only where it is a command invocation — line starts (with
+  // optional indentation and an optional `$ ` example marker), `Usage:` lines,
+  // and backticked snippets — never as a selector value like `name:orca` or a
+  // URL scheme like `orca://`. The `(?=[\s`]|$)` tail keeps hyphenated
+  // identifiers (`orca-computer-use-macos`) and `orca-ide` itself intact.
+  return text
+    .replace(/(^|\n)([ \t]*(?:\$ )?)orca(?=[\s`]|$)/g, `$1$2${command}`)
+    .replace(/(`)orca(?=[\s`]|$)/g, `$1${command}`)
+    .replace(/(\bUsage: )orca(?=[\s`]|$)/g, `$1${command}`)
+    .replace(/\bOrca\b/g, PRODUCT_DISPLAY_NAME)
+}
 
 const ROOT_HELP_TEXT = `orca
 
@@ -320,12 +339,12 @@ Examples:
 export function printHelp(specs: CommandSpec[], commandPath: string[] = []): void {
   const exactSpec = findCommandSpec(specs, commandPath)
   if (exactSpec) {
-    console.log(formatCommandHelp(exactSpec))
+    console.log(brandHelp(formatCommandHelp(exactSpec)))
     return
   }
 
   if (isCommandGroup(commandPath)) {
-    console.log(formatGroupHelp(specs, commandPath[0]))
+    console.log(brandHelp(formatGroupHelp(specs, commandPath[0])))
     return
   }
 
@@ -333,7 +352,7 @@ export function printHelp(specs: CommandSpec[], commandPath: string[] = []): voi
     console.log(`Unknown command: ${commandPath.join(' ')}\n`)
   }
 
-  console.log(ROOT_HELP_TEXT)
+  console.log(brandHelp(ROOT_HELP_TEXT))
 }
 
 export function formatCommandHelp(spec: CommandSpec): string {

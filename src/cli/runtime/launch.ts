@@ -1,6 +1,7 @@
 import { spawn as spawnProcess, type SpawnOptions } from 'child_process'
 import { dirname, resolve } from 'path'
 import { RuntimeClientError } from './types'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/product-brand'
 
 export function launchOrcaApp(): void {
   const overrideCommand = process.env.ORCA_OPEN_COMMAND
@@ -40,7 +41,7 @@ export function launchOrcaApp(): void {
 
   throw new RuntimeClientError(
     'runtime_open_failed',
-    'Could not determine how to launch Orca. Start Orca manually and try again.'
+    `Could not determine how to launch ${PRODUCT_DISPLAY_NAME}. Start ${PRODUCT_DISPLAY_NAME} manually and try again.`
   )
 }
 
@@ -118,7 +119,12 @@ export function serveOrcaApp(
         resolve(code)
         return
       }
-      reject(new RuntimeClientError('runtime_serve_failed', `Orca serve exited via ${signal}`))
+      reject(
+        new RuntimeClientError(
+          'runtime_serve_failed',
+          `${PRODUCT_DISPLAY_NAME} serve exited via ${signal}`
+        )
+      )
     })
   })
 }
@@ -148,7 +154,7 @@ function resolveForegroundOrcaExecutable(): string {
   }
   throw new RuntimeClientError(
     'runtime_serve_failed',
-    'Could not determine how to start Orca server. Set ORCA_APP_EXECUTABLE to the Orca executable.'
+    `Could not determine how to start ${PRODUCT_DISPLAY_NAME} server. Set ORCA_APP_EXECUTABLE to the ${PRODUCT_DISPLAY_NAME} executable.`
   )
 }
 

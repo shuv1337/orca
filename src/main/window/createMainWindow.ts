@@ -11,6 +11,7 @@ import {
   normalizeExternalBrowserUrl
 } from '../../shared/browser-url'
 import { isCrashReportReason } from '../../shared/crash-reporting'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/product-brand'
 import {
   getWindowShortcutActionId,
   matchesRecentTabSwitcherChord,
@@ -228,7 +229,7 @@ export function createMainWindow(
     ...(savedBounds ? { x: savedBounds.x, y: savedBounds.y } : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
-    title: opts?.title ?? 'Orca',
+    title: opts?.title ?? PRODUCT_DISPLAY_NAME,
     show: false,
     // Why: macOS swallows the app-activating click by default, so clicking
     // back into Orca (e.g. the floating workspace) needed a second click.
