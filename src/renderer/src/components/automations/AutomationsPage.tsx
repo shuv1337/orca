@@ -54,6 +54,7 @@ import type {
   AutomationUpdateInput
 } from '../../../../shared/automations-types'
 import { getAutomationRunRepoId } from '../../../../shared/automation-run-identity'
+import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product-brand'
 import {
   getLocalExecutionHostLabel,
   getRepoExecutionHostId,
@@ -2578,7 +2579,7 @@ export default function AutomationsPage(): React.JSX.Element {
                         selectedAutomationRunPage.scheduledFor,
                         relativeNow
                       ),
-                      'Orca',
+                      PRODUCT_DISPLAY_NAME,
                       selectedAutomationRunPageWorkspaceDisplay?.detailLabel ?? 'No workspace'
                     ]}
                     detail={

@@ -25,6 +25,7 @@ import {
   getReleaseDownloadUrl
 } from './updater-prerelease-feed'
 import { fetchNudge, shouldApplyNudge } from './updater-nudge'
+import { CONSUMES_UPSTREAM_WHATS_NEW_FEEDS } from '../shared/product-brand'
 
 type CheckFailureSource = 'event' | 'promise' | 'fallback-promise'
 type MissingManifestPrereleaseFallbackResult = { userInitiated: boolean }
@@ -782,7 +783,8 @@ async function checkForUpdateNudge(): Promise<void> {
 
   nudgeCheckInFlight = true
   try {
-    const nudge = await fetchNudge()
+    // D2: the fork does not consume upstream's onorca.dev nudge feed.
+    const nudge = CONSUMES_UPSTREAM_WHATS_NEW_FEEDS ? await fetchNudge() : null
     if (!nudge) {
       return
     }

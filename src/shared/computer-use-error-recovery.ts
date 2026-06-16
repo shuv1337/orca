@@ -1,3 +1,5 @@
+import { cliCommandName, PRODUCT_DISPLAY_NAME } from './product-brand'
+
 export type ComputerUseErrorRecoveryData = {
   nextSteps: string[]
 }
@@ -96,5 +98,15 @@ export function computerUseErrorRecoveryData(
 }
 
 function recoverWith(...nextSteps: string[]): ComputerUseErrorRecoveryData {
-  return { nextSteps }
+  // Why: these hints are read by the agent and pasted as shell commands. On
+  // Linux the installed CLI is `orca-ide` (avoids GNOME Orca), so the command
+  // must match the platform (D8); product mentions use the display brand.
+  const cmd = cliCommandName()
+  return {
+    nextSteps: nextSteps.map((step) =>
+      step
+        .replace(/\borca computer\b/g, `${cmd} computer`)
+        .replace(/\bOrca\b/g, PRODUCT_DISPLAY_NAME)
+    )
+  }
 }

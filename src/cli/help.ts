@@ -1,6 +1,17 @@
 /* eslint-disable max-lines -- Why: root and generated command help text live together so CLI discovery stays greppable. */
 import type { CommandSpec } from './args'
 import { findCommandSpec, isCommandGroup, supportsBrowserPageFlag } from './args'
+import { cliCommandName, PRODUCT_DISPLAY_NAME } from '../shared/product-brand'
+
+// Why: help text is authored with the `orca` command and `Orca` product name,
+// but the installed Linux binary is `orca-ide` (D8). Brand the final output once
+// at the print boundary so an agent reading `--help` copies the right command.
+// Applied exactly once (printHelp) — re-running would corrupt `orca-ide`.
+function brandHelp(text: string): string {
+  // Match `orca` only as a command invocation (followed by whitespace) so
+  // hyphenated identifiers like `orca-computer-use-macos` are left intact.
+  return text.replace(/\borca(?=\s)/g, cliCommandName()).replace(/\bOrca\b/g, PRODUCT_DISPLAY_NAME)
+}
 
 const ROOT_HELP_TEXT = `orca
 
@@ -320,12 +331,12 @@ Examples:
 export function printHelp(specs: CommandSpec[], commandPath: string[] = []): void {
   const exactSpec = findCommandSpec(specs, commandPath)
   if (exactSpec) {
-    console.log(formatCommandHelp(exactSpec))
+    console.log(brandHelp(formatCommandHelp(exactSpec)))
     return
   }
 
   if (isCommandGroup(commandPath)) {
-    console.log(formatGroupHelp(specs, commandPath[0]))
+    console.log(brandHelp(formatGroupHelp(specs, commandPath[0])))
     return
   }
 
@@ -333,7 +344,7 @@ export function printHelp(specs: CommandSpec[], commandPath: string[] = []): voi
     console.log(`Unknown command: ${commandPath.join(' ')}\n`)
   }
 
-  console.log(ROOT_HELP_TEXT)
+  console.log(brandHelp(ROOT_HELP_TEXT))
 }
 
 export function formatCommandHelp(spec: CommandSpec): string {

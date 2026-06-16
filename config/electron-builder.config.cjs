@@ -7,6 +7,7 @@ const {
   prunePackagedRuntimeNodeModules,
   verifyPackagedMainRuntimeDeps
 } = require('./packaged-runtime-node-modules.cjs')
+const { PRODUCT_DISPLAY_NAME, LEGACY_PACKAGED_EXECUTABLE_NAME } = require('./product-brand.cjs')
 
 const isMacRelease = process.env.ORCA_MAC_RELEASE === '1'
 // Why: release builds must ship both Intel and Apple Silicon DMGs, but local
@@ -46,8 +47,10 @@ const winSpeechNativeResource = {
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
+  // Why: appId is unchanged so macOS TCC permissions and the installed-app
+  // identity are preserved; only the display productName is rebranded (ADR-0001).
   appId: 'com.stablyai.orca',
-  productName: 'Orca',
+  productName: PRODUCT_DISPLAY_NAME,
   directories: {
     buildResources: 'resources/build'
   },
@@ -171,24 +174,28 @@ module.exports = {
     createDesktopShortcut: 'always'
   },
   mac: {
+    // Why: pin the executable file name to the legacy value so the bundle is
+    // shuvorca.app while the binary stays Contents/MacOS/Orca — the public
+    // resources/darwin/bin/orca launcher executes that exact path (D7, ADR-0001).
+    executableName: LEGACY_PACKAGED_EXECUTABLE_NAME,
     icon: 'resources/build/icon.icns',
     entitlements: 'resources/build/entitlements.mac.plist',
     entitlementsInherit: 'resources/build/entitlements.mac.plist',
     extendInfo: {
       NSAppleEventsUsageDescription:
-        'Orca allows terminal-launched developer tools to automate local apps when you request it.',
+        'shuvorca allows terminal-launched developer tools to automate local apps when you request it.',
       NSBluetoothAlwaysUsageDescription:
-        'Orca allows terminal-launched developer tools to access Bluetooth devices when you request it.',
+        'shuvorca allows terminal-launched developer tools to access Bluetooth devices when you request it.',
       NSBluetoothPeripheralUsageDescription:
-        'Orca allows terminal-launched developer tools to access Bluetooth devices when you request it.',
+        'shuvorca allows terminal-launched developer tools to access Bluetooth devices when you request it.',
       NSCameraUsageDescription: "Application requests access to the device's camera.",
       NSLocationUsageDescription:
-        'Orca allows terminal-launched developer tools to access location when you request it.',
+        'shuvorca allows terminal-launched developer tools to access location when you request it.',
       NSLocalNetworkUsageDescription:
-        'Orca allows terminal-launched developer tools to discover and connect to local development servers when you request it.',
+        'shuvorca allows terminal-launched developer tools to discover and connect to local development servers when you request it.',
       NSMicrophoneUsageDescription: "Application requests access to the device's microphone.",
       NSAudioCaptureUsageDescription:
-        'Orca allows terminal-launched developer tools to capture desktop audio when you request it.',
+        'shuvorca allows terminal-launched developer tools to capture desktop audio when you request it.',
       NSBonjourServices: ['_http._tcp', '_https._tcp'],
       NSDocumentsFolderUsageDescription:
         "Application requests access to the user's Documents folder.",
@@ -250,6 +257,9 @@ module.exports = {
     icon: 'resources/build/icon.icns',
     desktop: {
       entry: {
+        // Why: display label is the rebranded product name; the launcher binary
+        // (executableName) and WM_CLASS stay `orca`/`orca-ide` (ADR-0001).
+        Name: PRODUCT_DISPLAY_NAME,
         // Why: Electron reports WM_CLASS=orca for the visible Linux window;
         // GNOME docks need an exact match to group it with orca-ide.desktop.
         StartupWMClass: 'orca'

@@ -191,7 +191,7 @@ describe('removeWorktree cascade', () => {
     })
     expect(toast.warning).toHaveBeenCalledWith('Worktree deleted, branch kept', {
       description:
-        'Git could not safely delete branch "feature/test" after deleting worktree "Review cleanup", so Orca kept it to avoid losing local commits.',
+        'Git could not safely delete branch "feature/test" after deleting worktree "Review cleanup", so shuvorca kept it to avoid losing local commits.',
       action: {
         label: 'Force Delete Branch',
         onClick: expect.any(Function)

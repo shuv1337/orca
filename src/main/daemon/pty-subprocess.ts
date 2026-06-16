@@ -30,6 +30,7 @@ import { WINDOWS_GIT_BASH_SHELL } from '../../shared/windows-terminal-shell'
 import { resolveAgentForegroundProcess } from '../providers/agent-foreground-process'
 import { recognizeAgentProcess } from '../../shared/agent-process-recognition'
 import { isShellProcess } from '../../shared/shell-process-detection'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/product-brand'
 
 const PANE_IDENTITY_ENV_KEYS = ['ORCA_PANE_KEY', 'ORCA_TAB_ID', 'ORCA_WORKTREE_ID'] as const
 const FOREGROUND_AGENT_CACHE_TTL_MS = 1000
@@ -320,7 +321,7 @@ export function createPtySubprocess(opts: PtySubprocessOptions): SubprocessHandl
     ...opts.env,
     TERM: 'xterm-256color',
     COLORTERM: 'truecolor',
-    TERM_PROGRAM: 'Orca',
+    TERM_PROGRAM: PRODUCT_DISPLAY_NAME,
     // Why: TUIs feature-gate on TERM_PROGRAM_VERSION. The daemon is forked
     // by main (daemon-init.ts:93) with the parent's env, so ORCA_APP_VERSION
     // — set in src/main/index.ts from app.getVersion() — is inherited here.
@@ -328,7 +329,7 @@ export function createPtySubprocess(opts: PtySubprocessOptions): SubprocessHandl
     // Why: opt tools (Claude Code, ls --hyperlink, etc.) into emitting OSC 8
     // hyperlinks. The `supports-hyperlinks` npm package gates on a hard-coded
     // TERM_PROGRAM allowlist (iTerm.app / WezTerm / vscode) and returns false
-    // for TERM_PROGRAM=Orca, so callers drop OSC 8 output entirely and emit
+    // for TERM_PROGRAM=shuvorca, so callers drop OSC 8 output entirely and emit
     // bare text instead. xterm.js in Orca parses OSC 8 and the pane's
     // linkHandler routes clicks, so forcing the advertisement is safe and
     // restores clickable refs like `owner/repo#123` / `PR#123`.

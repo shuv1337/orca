@@ -136,7 +136,7 @@ describe('AgentsPane', () => {
     expect(markup).not.toContain('aria-label="Agent location"')
     expect(markup).toContain('Keep computer awake while agents are working')
     expect(markup).toContain(
-      'Keeps this computer and display awake while agents are working. Orca also asks this device to stay awake when the lid is closed, subject to its power policy.'
+      'Keeps this computer and display awake while agents are working. shuvorca also asks this device to stay awake when the lid is closed, subject to its power policy.'
     )
     expect(markup).toContain('aria-checked="false"')
   })

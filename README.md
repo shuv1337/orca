@@ -1,14 +1,20 @@
 <h1 align="center">
-  <a href="https://onOrca.dev"><img src="resources/build/icon.png" alt="Orca" width="64" valign="middle" /></a> Orca
+  <a href="https://github.com/shuv1337/orca"><img src="resources/build/icon.png" alt="shuvorca" width="64" valign="middle" /></a> shuvorca
 </h1>
 
 <p align="center">
-  <a href="https://github.com/stablyai/orca/stargazers"><img src="https://badgen.net/github/stars/stablyai/orca?label=%E2%98%85" alt="GitHub stars" /></a>
-  <a href="https://github.com/stablyai/orca/releases"><img src="https://img.shields.io/github/downloads/stablyai/orca/total?label=downloads" alt="Total downloads across all releases" /></a>
-  <img src="https://badgen.net/github/license/stablyai/orca" alt="License" />
-  <a href="https://discord.gg/fzjDKHxv8Q"><img src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white" alt="Join the Orca Discord" /></a>
+  <a href="https://github.com/shuv1337/orca/stargazers"><img src="https://badgen.net/github/stars/shuv1337/orca?label=%E2%98%85" alt="GitHub stars" /></a>
+  <a href="https://github.com/shuv1337/orca/releases"><img src="https://img.shields.io/github/downloads/shuv1337/orca/total?label=downloads" alt="Total downloads across all releases" /></a>
+  <img src="https://badgen.net/github/license/shuv1337/orca" alt="License" />
   <img src="https://img.shields.io/badge/macOS%20%7C%20Windows%20%7C%20Linux-4493F8?style=flat-square" alt="Supported platforms: macOS, Windows, and Linux" />
 </p>
+
+> **shuvorca** is a fork of [Orca](https://github.com/stablyai/orca) by stablyai.
+> The user-visible product name is **shuvorca**; internal identifiers (the `orca`
+> CLI / `orca-ide` on Linux, `~/.orca`, `ORCA_*` env vars, the `com.stablyai.orca`
+> app id, and release artifact names) are deliberately kept as `orca` for
+> compatibility with agent skills, existing profiles, and the updater.
+> Downloads: https://github.com/shuv1337/orca/releases
 
 <p align="center">
   <sub><a href="docs/readme/README.es.md">Español</a> · <a href="docs/readme/README.zh-CN.md">中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a></sub>

@@ -18,6 +18,7 @@ import {
 } from '../../../../shared/crash-reporting'
 import type { GitHubViewer } from '../../../../shared/types'
 import { translate } from '@/i18n/i18n'
+import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product-brand'
 
 function formatSummary(report: CrashReportRecord): string {
   if (isReactErrorBoundaryReport(report)) {
@@ -31,8 +32,8 @@ function formatSummary(report: CrashReportRecord): string {
 
 function getDialogTitle(report: CrashReportRecord | null): string {
   return report && isReactErrorBoundaryReport(report)
-    ? 'Orca hit a recoverable UI error'
-    : 'Orca closed unexpectedly'
+    ? `${PRODUCT_DISPLAY_NAME} hit a recoverable UI error`
+    : `${PRODUCT_DISPLAY_NAME} closed unexpectedly`
 }
 
 function getDialogDescription(report: CrashReportRecord | null): string {
@@ -44,7 +45,7 @@ function getDialogDescription(report: CrashReportRecord | null): string {
 function getNotesPlaceholder(report: CrashReportRecord | null): string {
   return report && isReactErrorBoundaryReport(report)
     ? 'Optional: what were you doing before this UI error?'
-    : 'Optional: what were you doing before Orca closed?'
+    : `Optional: what were you doing before ${PRODUCT_DISPLAY_NAME} closed?`
 }
 
 type CrashReportDialogSurfaceProps = {

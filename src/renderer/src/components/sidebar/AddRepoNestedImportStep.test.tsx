@@ -82,7 +82,7 @@ describe('AddRepoNestedImportStep', () => {
     expect(html).not.toContain('What is a')
     expect(html).toContain('Is this a monorepo?')
     expect(html).toContain('Choose this if these projects belong together')
-    expect(html).toContain('Orca will group them and let you work from the parent folder')
+    expect(html).toContain('shuvorca will group them and let you work from the parent folder')
     expect(html).toContain('No, import separately')
     expect(html).toContain('Yes, import as monorepo')
     expect(html).toContain('payments/api')

@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as ProductBrandModule from '../shared/product-brand'
 
 const {
   appMock,
@@ -124,6 +125,14 @@ const { fetchNudgeMock, shouldApplyNudgeMock } = vi.hoisted(() => ({
 vi.mock('./updater-nudge', () => ({
   fetchNudge: fetchNudgeMock,
   shouldApplyNudge: shouldApplyNudgeMock
+}))
+
+// Why: these tests exercise the nudge-campaign machinery, which the fork gates
+// off in production via CONSUMES_UPSTREAM_WHATS_NEW_FEEDS (D2). Enable the flag
+// here so the machinery stays covered for if/when the fork ships its own feed.
+vi.mock('../shared/product-brand', async (importOriginal) => ({
+  ...(await importOriginal<typeof ProductBrandModule>()),
+  CONSUMES_UPSTREAM_WHATS_NEW_FEEDS: true
 }))
 
 const { fetchNewerReleaseTagsMock } = vi.hoisted(() => ({

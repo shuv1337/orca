@@ -7,6 +7,7 @@ import ja from './locales/ja.json'
 import ko from './locales/ko.json'
 import zh from './locales/zh.json'
 import { isPseudoLocalizationLocale, pseudoLocalizeString } from './pseudo-localization'
+import { applyProductBrand } from '../../../shared/product-brand'
 import { DEFAULT_LOCALE, resolveUiLocale } from './supported-languages'
 import type { UiLanguage } from '../../../shared/ui-language'
 
@@ -41,7 +42,10 @@ void i18n.use(initReactI18next).init({
 })
 
 export function translate(key: string, fallback: string, options?: TOptions): string {
-  const value = i18n.t(key, { defaultValue: fallback, ...options })
+  // Why: brand the resolved string at the seam (ADR-0002) so locale catalogs
+  // stay byte-identical to upstream. Brand before pseudo-localization so the
+  // word-boundary rule runs on real text, not accented pseudo glyphs.
+  const value = applyProductBrand(i18n.t(key, { defaultValue: fallback, ...options }))
   return isPseudoLocalizationLocale(i18n.language) ? pseudoLocalizeString(value) : value
 }
 

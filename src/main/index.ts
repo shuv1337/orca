@@ -1416,7 +1416,10 @@ app.whenReady().then(async () => {
     prepareForClaudeLaunch: () => claudeRuntimeAuth!.prepareForClaudeLaunch()
   })
   starNag = new StarNagService(store, stats)
-  starNag.start()
+  // Why: the fork does not nag users to star the repo (D3). The service stays
+  // wired for IPC compatibility, but the agent-spawn threshold listener is never
+  // started, so the "star on GitHub" prompt never fires. Re-enable by restoring
+  // starNag.start() if the fork later opts into a star prompt for shuv1337/orca.
   starNag.registerIpcHandlers()
   runtimeService.setAgentBrowserBridge(
     new AgentBrowserBridge(browserManager, {

@@ -10,6 +10,7 @@ import {
 } from './updater-mac-install'
 import { compareVersions } from './updater-fallback'
 import { fetchChangelog } from './updater-changelog'
+import { CONSUMES_UPSTREAM_WHATS_NEW_FEEDS } from '../shared/product-brand'
 import type { ElectronAutoUpdater } from './electron-updater-loader'
 
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
@@ -150,7 +151,10 @@ export function registerAutoUpdaterHandlers({
     // would block a renderer-side fetch to onorca.dev, and ensures the
     // card can render immediately without an async loading gap.
     void (async () => {
-      const changelog = await fetchChangelog(info.version, app.getVersion()).catch(() => null)
+      // D2: the fork does not consume upstream's onorca.dev changelog feed.
+      const changelog = CONSUMES_UPSTREAM_WHATS_NEW_FEEDS
+        ? await fetchChangelog(info.version, app.getVersion()).catch(() => null)
+        : null
 
       // Why: the handler is now async, so up to 5 seconds may pass during the
       // fetch. If another autoUpdater event (e.g., 'error') fired and updated

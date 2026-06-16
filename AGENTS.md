@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Product Name (Fork)
+
+This repo is a fork whose user-visible product name is **shuvorca** (always
+lowercase, every position). Internal identifiers are deliberately **unchanged**
+and must stay `orca`: the CLI command (`orca`, or `orca-ide` on Linux), `~/.orca`
+and `Application Support/Orca` data paths, `ORCA_*` env vars, the
+`com.stablyai.orca` app id / bundle ids, `app.setName('Orca')`, and release
+artifact names. The brand is the single source of truth in
+[`src/shared/product-brand.ts`](./src/shared/product-brand.ts); user-facing i18n
+strings are rebranded at runtime via `applyProductBrand` at the translate seams
+(locale JSON stays byte-identical to upstream). See `CONTEXT.md` and
+`docs/adr/0001`/`0002`. Don't rebrand identifiers, data, or `orca`/`orca-ide`
+command tokens — only display surfaces.
+
 ## Design System
 
 All UI work — layout, color, typography, spacing, component selection, UX behavior — must follow [`docs/STYLEGUIDE.md`](./docs/STYLEGUIDE.md). Use the tokens defined in `src/renderer/src/assets/main.css` (the canonical source) and the shadcn primitives in `src/renderer/src/components/ui/`. Don't invent new color values, font sizes, or shadow tiers when a documented one already covers the role. When STYLEGUIDE.md is silent, follow the resolution order in its final section.

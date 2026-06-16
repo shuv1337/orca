@@ -5,11 +5,11 @@ cask "orca" do
   sha256 arm:   "fc707f290ff3b631b7b7947bf339885b61a43d2e89475997c125b61268ed4966",
          intel: "5f677c13a08f7a5740442e29d388285a86488c8c1f7aa5f10a8721a2c6ede8e4"
 
-  url "https://github.com/stablyai/orca/releases/download/v#{version}/orca-macos-#{arch}.dmg",
-      verified: "github.com/stablyai/orca/"
-  name "Orca"
+  url "https://github.com/shuv1337/orca/releases/download/v#{version}/orca-macos-#{arch}.dmg",
+      verified: "github.com/shuv1337/orca/"
+  name "shuvorca"
   desc "IDE for orchestrating AI coding agents across terminals and worktrees"
-  homepage "https://onorca.dev/"
+  homepage "https://github.com/shuv1337/orca"
 
   livecheck do
     url :url
@@ -25,7 +25,10 @@ cask "orca" do
   conflicts_with cask: "orca@rc"
   depends_on macos: :big_sur
 
-  app "Orca.app"
+  # Why: productName is now shuvorca, so the packaged bundle is shuvorca.app
+  # (the executable inside stays Orca and appId stays com.stablyai.orca — D7,
+  # ADR-0001), which is why the zap paths below still reference com.stablyai.orca.
+  app "shuvorca.app"
 
   # Why: Orca writes user data under ~/.orca (worktrees, agent state) and
   # Electron's standard userData directories. Zap removes everything the app

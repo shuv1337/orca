@@ -34,6 +34,7 @@ vi.mock('../runtime-client', () => {
   }
 })
 
+import { cliCommandName } from '../../shared/product-brand'
 import { main } from '../index'
 import { buildWorktree, okFixture, queueFixtures, worktreeListFixture } from '../test-fixtures'
 
@@ -68,7 +69,7 @@ describe('orca computer observation CLI handlers', () => {
 
     const output = vi.mocked(console.log).mock.calls[0][0]
     expect(output).toContain(
-      'orca computer permissions [--id <accessibility|screenshots>] [--json]'
+      `${cliCommandName()} computer permissions [--id <accessibility|screenshots>] [--json]`
     )
     expect(output).toContain('--id <id>')
     expect(output).toContain('Identifier for a target item or permission')

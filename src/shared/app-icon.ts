@@ -1,7 +1,9 @@
+import { PRODUCT_DISPLAY_NAME } from './product-brand'
+
 export const APP_ICON_OPTIONS = [
-  { id: 'classic', label: 'Classic Orca' },
-  { id: 'watercolor', label: 'Watercolor Orca' },
-  { id: 'blue', label: 'Blue Orca' }
+  { id: 'classic', label: `Classic ${PRODUCT_DISPLAY_NAME}` },
+  { id: 'watercolor', label: `Watercolor ${PRODUCT_DISPLAY_NAME}` },
+  { id: 'blue', label: `Blue ${PRODUCT_DISPLAY_NAME}` }
 ] as const
 
 export type AppIconId = (typeof APP_ICON_OPTIONS)[number]['id']

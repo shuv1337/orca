@@ -7,6 +7,7 @@ import ja from '../../renderer/src/i18n/locales/ja.json'
 import ko from '../../renderer/src/i18n/locales/ko.json'
 import zh from '../../renderer/src/i18n/locales/zh.json'
 import { isPseudoLocalizationLocale, pseudoLocalizeString } from '../../shared/pseudo-localization'
+import { applyProductBrand } from '../../shared/product-brand'
 import { DEFAULT_UI_LOCALE, resolveUiLocale, type SupportedUiLocale } from '../../shared/ui-locale'
 import { UI_LANGUAGE_SYSTEM, type UiLanguage } from '../../shared/ui-language'
 
@@ -69,6 +70,7 @@ export function translateMain(key: string, fallback: string, options?: TOptions)
   // Why: menu registration can run before async init finishes in tests; fall back
   // to the English default instead of returning undefined from an uninitialized i18n.
   const raw = initialized ? mainI18n.t(key, { defaultValue: fallback, ...options }) : fallback
-  const value = typeof raw === 'string' && raw.length > 0 ? raw : fallback
+  // Why: brand at the seam (ADR-0002), before pseudo-localization.
+  const value = applyProductBrand(typeof raw === 'string' && raw.length > 0 ? raw : fallback)
   return isPseudoLocalizationLocale(mainI18n.language) ? pseudoLocalizeString(value) : value
 }
