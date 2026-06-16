@@ -926,9 +926,11 @@ const WorktreeCard = React.memo(function WorktreeCard({
         isActiveSurface
           ? 'bg-black/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] border border-black/[0.015] dark:bg-white/[0.10] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.03)]'
           : isMultiSelected
-            ? 'border border-worktree-sidebar-ring/35 bg-worktree-sidebar-accent/70 ring-1 ring-worktree-sidebar-ring/30'
+            ? 'border border-worktree-sidebar-selection-ring/40 bg-worktree-sidebar-accent/70 ring-1 ring-worktree-sidebar-selection-ring/35'
             : 'border border-transparent worktree-sidebar-card-hover',
-        isActiveSurface && isMultiSelected && 'ring-1 ring-worktree-sidebar-ring/35',
+        isActiveSurface && isMultiSelected && 'ring-1 ring-worktree-sidebar-selection-ring/40',
+        // Why: pair the easy-to-miss amber bell with a persistent amber edge.
+        showUnreadEmphasis && 'worktree-card-unread-emphasis',
         revealHighlight && [
           'scroll-to-current-workspace-reveal-highlight',
           revealHighlightTone === 'ai' && 'scroll-to-current-workspace-reveal-highlight--ai'
