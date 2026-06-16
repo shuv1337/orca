@@ -41,7 +41,7 @@ describe('parseZellijSessionList', () => {
   })
 
   it('detects the (current) marker', () => {
-    const [session] = parseZellijSessionList('orca-feature-abc123 [Created 1m ago] (current)')
+    const [session] = parseZellijSessionList('orca-feature-abc1234 [Created 1m ago] (current)')
     expect(session.current).toBe(true)
   })
 
@@ -50,7 +50,8 @@ describe('parseZellijSessionList', () => {
   })
 
   it('matches the deterministic Orca name scheme', () => {
-    expect(isOrcaManagedZellijSessionName('orca-feature-abc123')).toBe(true)
+    expect(isOrcaManagedZellijSessionName('orca-feature-abc1234')).toBe(true)
+    expect(isOrcaManagedZellijSessionName('orca-feature-abc123')).toBe(false)
     expect(isOrcaManagedZellijSessionName('orca')).toBe(false)
     expect(isOrcaManagedZellijSessionName('feature-abc123')).toBe(false)
   })

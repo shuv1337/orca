@@ -1124,6 +1124,53 @@ describe('web worktree preload API', () => {
       { method: 'worktree.list', params: { repo: 'repo-1', limit: 10_000 } }
     ])
   })
+
+  it('forwards archive and Zellij cleanup options when removing worktrees', async () => {
+    const runtimeCalls: { method: string; params: unknown }[] = []
+    vi.doMock('./web-runtime-client', () => ({
+      WebRuntimeClient: class {
+        call(method: string, params?: unknown): Promise<RuntimeRpcResponse<unknown>> {
+          runtimeCalls.push({ method, params })
+          return Promise.resolve({
+            id: `call-${runtimeCalls.length}`,
+            ok: true,
+            result: { removed: true },
+            _meta: { runtimeId: 'runtime-1' }
+          })
+        }
+
+        close(): void {}
+      }
+    }))
+
+    const globals = installBrowserGlobals('Linux')
+    writeStoredRuntimeEnvironment(globals.storage)
+    const { installWebPreloadApi } = await import('./web-preload-api')
+    installWebPreloadApi()
+
+    await expect(
+      globals.window.api.worktrees.remove({
+        worktreeId: 'repo-1::/workspace/feature',
+        force: true,
+        skipArchive: false,
+        deleteZellijSessionsOnSuccess: true,
+        zellijSessionNames: ['orca-feature-abc1234']
+      })
+    ).resolves.toEqual({ removed: true })
+
+    expect(runtimeCalls).toEqual([
+      {
+        method: 'worktree.rm',
+        params: {
+          worktree: 'id:repo-1::/workspace/feature',
+          force: true,
+          runHooks: true,
+          deleteZellijSessionsOnSuccess: true,
+          zellijSessionNames: ['orca-feature-abc1234']
+        }
+      }
+    ])
+  })
 })
 
 describe('web file preload API', () => {

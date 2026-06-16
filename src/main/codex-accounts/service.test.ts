@@ -82,6 +82,7 @@ function createSettings(overrides: Partial<GlobalSettings> = {}): GlobalSettings
     terminalClipboardOnSelect: false,
     terminalAllowOsc52Clipboard: false,
     terminalUseZellij: false,
+    terminalDeleteZellijSessionsOnWorktreeDelete: false,
     setupScriptLaunchMode: 'split-vertical',
     terminalScrollbackBytes: 10_000_000,
     localAccountRuntime: 'host',

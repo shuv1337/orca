@@ -20,7 +20,7 @@ export type ZellijSessionInfo = {
 // Orca session names are `orca-<sanitized-label>-<base36hash>`; the label is
 // lowercased and uses only [a-z0-9_.-]. The bare `orca` session a user may have
 // created by hand is intentionally excluded by requiring the label+hash shape.
-const ORCA_SESSION_NAME_RE = /^orca-[a-z0-9_.-]+-[a-z0-9]+$/
+const ORCA_SESSION_NAME_RE = /^orca-[a-z0-9_.-]+-[a-z0-9]{7}$/
 
 export function isOrcaManagedZellijSessionName(name: string): boolean {
   return ORCA_SESSION_NAME_RE.test(name)

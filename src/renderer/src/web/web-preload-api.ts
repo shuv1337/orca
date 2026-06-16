@@ -1155,7 +1155,7 @@ function createWorktreesApi(): NonNullable<Partial<PreloadApi>['worktrees']> {
       return callRuntimeResult<RemoveWorktreeResult>('worktree.rm', {
         worktree: toRuntimeWorktreeSelector(worktreeId),
         force,
-        runHooks: skipArchive ? false : undefined,
+        runHooks: skipArchive !== true,
         deleteZellijSessionsOnSuccess,
         zellijSessionNames
       })
