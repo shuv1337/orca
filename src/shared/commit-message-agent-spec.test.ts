@@ -37,7 +37,7 @@ describe('COMMIT_MESSAGE_AGENT_SPECS', () => {
   it('uses the strongest available defaults for core agents', () => {
     expect(COMMIT_MESSAGE_AGENT_SPECS.claude?.defaultModelId).toBe('sonnet')
     expect(COMMIT_MESSAGE_AGENT_SPECS.codex?.defaultModelId).toBe('gpt-5.5')
-    expect(COMMIT_MESSAGE_AGENT_SPECS.pi?.defaultModelId).toBe('github-copilot/gpt-5.4-mini')
+    expect(COMMIT_MESSAGE_AGENT_SPECS.pi?.defaultModelId).toBe('default')
   })
 
   it('uses the provider-qualified Kimi model id accepted by the CLI', () => {
@@ -289,6 +289,45 @@ describe('model discovery parsers', () => {
       { id: 'Claude Opus 4.6 (Thinking)', label: 'Claude Opus 4.6 (Thinking)' },
       { id: 'GPT-OSS 120B (Medium)', label: 'GPT-OSS 120B (Medium)' }
     ])
+  })
+})
+
+describe('buildArgs (Pi)', () => {
+  const spec = getCommitMessageAgentSpec('pi')!
+
+  it('uses Pi config defaults without forcing a provider model', () => {
+    const args = spec.buildArgs({
+      prompt: 'PROMPT',
+      model: 'default',
+      thinkingLevel: 'low'
+    })
+
+    expect(args).toEqual([
+      '--print',
+      '--no-session',
+      '--no-tools',
+      '--no-extensions',
+      '--no-skills',
+      '--no-context-files',
+      '--mode',
+      'text'
+    ])
+    expect(args).not.toContain('--model')
+    expect(args).not.toContain('--thinking')
+    expect(spec.promptDelivery).toBe('stdin')
+  })
+
+  it('passes explicit Pi model and thinking selections through', () => {
+    const args = spec.buildArgs({
+      prompt: 'PROMPT',
+      model: 'github-copilot/gpt-5.4-mini',
+      thinkingLevel: 'medium'
+    })
+
+    expect(args).toContain('--model')
+    expect(args).toContain('github-copilot/gpt-5.4-mini')
+    expect(args).toContain('--thinking')
+    expect(args).toContain('medium')
   })
 })
 

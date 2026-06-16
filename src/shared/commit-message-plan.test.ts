@@ -124,6 +124,35 @@ describe('planCommitMessageGeneration', () => {
     })
   })
 
+  it('plans Pi config-default generation without forcing --model', () => {
+    const result = planCommitMessageGeneration(
+      {
+        agentId: 'pi',
+        model: 'default'
+      },
+      'PROMPT'
+    )
+
+    expect(result).toEqual({
+      ok: true,
+      plan: {
+        binary: 'pi',
+        args: [
+          '--print',
+          '--no-session',
+          '--no-tools',
+          '--no-extensions',
+          '--no-skills',
+          '--no-context-files',
+          '--mode',
+          'text'
+        ],
+        stdinPayload: 'PROMPT',
+        label: 'Pi'
+      }
+    })
+  })
+
   it('allows discovered dynamic models that are not in the seed catalog', () => {
     const result = planCommitMessageGeneration(
       {

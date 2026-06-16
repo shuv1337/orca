@@ -143,16 +143,16 @@ export function detectLocalPlatform(): NodeJS.Platform | null {
 export function getLocalExecutionHostLabel(
   platform: NodeJS.Platform | null = detectLocalPlatform()
 ): string {
-  switch (platform) {
-    case 'win32':
-      return 'Local Windows'
-    case 'linux':
-      return 'Local Linux'
-    case 'darwin':
-      return 'Local Mac'
-    default:
-      return 'Local'
+  if (platform === 'win32') {
+    return 'Local Windows'
   }
+  if (platform === 'linux') {
+    return 'Local Linux'
+  }
+  if (platform === 'darwin') {
+    return 'Local Mac'
+  }
+  return 'Local'
 }
 
 export function getExecutionHostLabel(

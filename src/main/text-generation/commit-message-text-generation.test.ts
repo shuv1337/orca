@@ -376,8 +376,8 @@ describe('discoverCommitMessageModelsLocal', () => {
 
     await expect(pending).resolves.toMatchObject({
       success: true,
-      defaultModelId: 'github-copilot/gpt-5.4-mini',
-      models: [{ id: 'github-copilot/gpt-5.4-mini' }]
+      defaultModelId: 'default',
+      models: [{ id: 'default' }, { id: 'github-copilot/gpt-5.4-mini' }]
     })
   })
 
@@ -408,8 +408,15 @@ describe('discoverCommitMessageModelsLocal', () => {
 
     await expect(pending).resolves.toMatchObject({
       success: true,
-      defaultModelId: 'github-copilot/gpt-5.4-mini',
-      models: [{ id: 'github-copilot/gpt-5.4-mini' }, { id: 'openai-codex/gpt-5.5' }]
+      // Why: Pi's synthetic "Config default" is never in --list-models output,
+      // so successful discovery must still keep it (and as the default) rather
+      // than re-persisting a discovered provider model.
+      defaultModelId: 'default',
+      models: [
+        { id: 'default', label: 'Config default' },
+        { id: 'github-copilot/gpt-5.4-mini' },
+        { id: 'openai-codex/gpt-5.5' }
+      ]
     })
   })
 

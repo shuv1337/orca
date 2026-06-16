@@ -329,5 +329,33 @@ export function extractAgentErrorMessage(stdout: string, stderr: string): string
     }
   }
 
+  // Why: Pi and a few provider-backed CLIs emit actionable failures as plain
+  // stderr lines without an `Error:` prefix, so preserve those user-facing hints.
+  const plainCliErrorLine = extractPlainCliErrorLine(lines)
+  if (plainCliErrorLine) {
+    return plainCliErrorLine
+  }
+
+  return null
+}
+
+const PLAIN_CLI_ERROR_PATTERNS = [
+  /^No API key(?: found)?(?:\s+for\s+provider)?:?/i,
+  /^Connection error\./i,
+  /^Model\s+".+"\s+not found\./i,
+  /^Unknown provider\s+".+"\./i,
+  /^Provider\s+".+"\s+is not configured\./i,
+  /^Authentication failed\./i,
+  /^Rate limit(?:ed)?\b/i,
+  /^Network error\b/i
+]
+
+function extractPlainCliErrorLine(lines: string[]): string | null {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim()
+    if (PLAIN_CLI_ERROR_PATTERNS.some((pattern) => pattern.test(line))) {
+      return line
+    }
+  }
   return null
 }

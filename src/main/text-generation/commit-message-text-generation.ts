@@ -232,10 +232,26 @@ function finalizeModelDiscoveryOutput(
     }
     return { success: false, error: `${spec.label} returned no available models.` }
   }
-  const defaultModelId = models.some((model) => model.id === spec.defaultModelId)
+  // Why: synthetic pseudo-models (e.g. Pi's "Config default") never appear in
+  // CLI discovery output, so prepend them or successful discovery would drop
+  // the intended default and re-persist an explicit provider model.
+  const merged = prependSyntheticModels(spec, models)
+  const defaultModelId = merged.some((model) => model.id === spec.defaultModelId)
     ? spec.defaultModelId
-    : models[0].id
-  return toModelDiscoveryCapability(spec, models, defaultModelId)
+    : merged[0].id
+  return toModelDiscoveryCapability(spec, merged, defaultModelId)
+}
+
+function prependSyntheticModels(
+  spec: NonNullable<ReturnType<typeof getCommitMessageAgentSpec>>,
+  discovered: CommitMessageModelCapability[]
+): CommitMessageModelCapability[] {
+  const synthetic = spec.models.filter((model) => model.synthetic)
+  if (synthetic.length === 0) {
+    return discovered
+  }
+  const syntheticIds = new Set(synthetic.map((model) => model.id))
+  return [...synthetic, ...discovered.filter((model) => !syntheticIds.has(model.id))]
 }
 
 function planModelDiscovery(
