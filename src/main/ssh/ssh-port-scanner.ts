@@ -61,6 +61,12 @@ export class PortScanner {
         if (!portsEqual(handle.previousPorts, currentPorts)) {
           handle.previousPorts = currentPorts
           onChanged(targetId, result.ports, result.platform)
+        } else {
+          // Why: a racy /proc read on the remote can momentarily drop a port's
+          // pid/processName, which portsEqual now treats as unchanged. Fold any
+          // newly-resolved metadata into the baseline so a later *genuine* pid
+          // change is still detected — without re-emitting on the flicker.
+          mergeKnownMetadata(handle.previousPorts, currentPorts)
         }
       } catch {
         // Relay disconnected or request timed out — retry on next interval
@@ -99,7 +105,17 @@ export class PortScanner {
   }
 }
 
-function portsEqual(a: Map<string, DetectedPort>, b: Map<string, DetectedPort>): boolean {
+// Why: the remote relay derives pid/processName from a /proc inode→pid walk
+// that is racy on a busy box — the same listener comes back with its pid one
+// poll and `undefined` the next. Counting that as a change made the 3s poll
+// re-emit `detected-ports-changed` continuously, flapping the workspace port
+// UI. A field only counts as changed when *both* sides are known and differ; a
+// missing value on either side is a transient read gap, not a real change.
+function definiteFieldChange<T>(a: T | undefined, b: T | undefined): boolean {
+  return a !== undefined && b !== undefined && a !== b
+}
+
+export function portsEqual(a: Map<string, DetectedPort>, b: Map<string, DetectedPort>): boolean {
   if (a.size !== b.size) {
     return false
   }
@@ -108,9 +124,33 @@ function portsEqual(a: Map<string, DetectedPort>, b: Map<string, DetectedPort>):
     if (!entryB) {
       return false
     }
-    if (entryA.pid !== entryB.pid || entryA.processName !== entryB.processName) {
+    if (
+      definiteFieldChange(entryA.pid, entryB.pid) ||
+      definiteFieldChange(entryA.processName, entryB.processName)
+    ) {
       return false
     }
   }
   return true
+}
+
+/** Fold newly-resolved pid/processName from a later poll into the baseline
+ *  without emitting a change. Only fills unknown fields — never downgrades a
+ *  known value back to `undefined` (that downgrade is the flicker we suppress),
+ *  so a genuine pid change later still diffs against a known baseline. */
+export function mergeKnownMetadata(
+  baseline: Map<string, DetectedPort>,
+  current: Map<string, DetectedPort>
+): void {
+  for (const [key, base] of baseline) {
+    const cur = current.get(key)
+    if (!cur) {
+      continue
+    }
+    const pid = base.pid ?? cur.pid
+    const processName = base.processName ?? cur.processName
+    if (pid !== base.pid || processName !== base.processName) {
+      baseline.set(key, { ...base, pid, processName })
+    }
+  }
 }
