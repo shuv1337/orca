@@ -19,6 +19,12 @@ export type CommitMessageModel = {
   thinkingLevels?: ThinkingLevel[]
   /** Required when thinkingLevels is present. */
   defaultThinkingLevel?: string
+  /**
+   * Pseudo-model that never appears in the CLI's own model discovery output
+   * (e.g. "use the CLI's configured default"). Always prepended to discovered
+   * model lists so dynamic discovery can't drop it.
+   */
+  synthetic?: boolean
 }
 
 export type CommitMessageAgentSpec = {
@@ -391,7 +397,8 @@ export const COMMIT_MESSAGE_AGENT_SPECS: Partial<Record<TuiAgent, CommitMessageA
     models: [
       {
         id: 'default',
-        label: 'Config default'
+        label: 'Config default',
+        synthetic: true
       },
       {
         id: 'github-copilot/gpt-5.4-mini',
