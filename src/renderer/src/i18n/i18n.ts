@@ -7,7 +7,7 @@ import ja from './locales/ja.json'
 import ko from './locales/ko.json'
 import zh from './locales/zh.json'
 import { isPseudoLocalizationLocale, pseudoLocalizeString } from './pseudo-localization'
-import { applyProductBrand } from '../../../shared/product-brand'
+import { applyProductBrand, brandResourceTree } from '../../../shared/product-brand'
 import { DEFAULT_LOCALE, resolveUiLocale } from './supported-languages'
 import type { UiLanguage } from '../../../shared/ui-language'
 
@@ -16,21 +16,24 @@ export const i18n: I18nInstance = i18next.createInstance()
 void i18n.use(initReactI18next).init({
   fallbackLng: DEFAULT_LOCALE,
   lng: DEFAULT_LOCALE,
+  // Why: brand templates at load time (ADR-0002) so interpolation runs on
+  // already-branded strings — branding the resolved output would also rewrite
+  // user-controlled interpolation values like a `fix-Orca` branch name.
   resources: {
     en: {
-      translation: en
+      translation: brandResourceTree(en)
     },
     zh: {
-      translation: zh
+      translation: brandResourceTree(zh)
     },
     ko: {
-      translation: ko
+      translation: brandResourceTree(ko)
     },
     ja: {
-      translation: ja
+      translation: brandResourceTree(ja)
     },
     es: {
-      translation: es
+      translation: brandResourceTree(es)
     }
   },
   interpolation: {
@@ -42,10 +45,12 @@ void i18n.use(initReactI18next).init({
 })
 
 export function translate(key: string, fallback: string, options?: TOptions): string {
-  // Why: brand the resolved string at the seam (ADR-0002) so locale catalogs
-  // stay byte-identical to upstream. Brand before pseudo-localization so the
-  // word-boundary rule runs on real text, not accented pseudo glyphs.
-  const value = applyProductBrand(i18n.t(key, { defaultValue: fallback, ...options }))
+  // Why: brand the template/default string BEFORE interpolation (ADR-0002) so
+  // the word-boundary rule never touches interpolated user data (e.g. a
+  // `fix-Orca` branch name). Catalog templates are pre-branded at init; the
+  // call-time fallback is branded here. Pseudo-localize last so the rule runs
+  // on real text, not accented pseudo glyphs.
+  const value = i18n.t(key, { defaultValue: applyProductBrand(fallback), ...options })
   return isPseudoLocalizationLocale(i18n.language) ? pseudoLocalizeString(value) : value
 }
 

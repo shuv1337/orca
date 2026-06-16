@@ -1,6 +1,7 @@
 import type { CliStatusResult, RuntimeStatus } from '../../shared/runtime-types'
 import { parsePairingCode, type PairingOffer } from '../../shared/pairing'
 import { launchOrcaApp } from './launch'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/product-brand'
 import { getDefaultUserDataPath, readMetadata } from './metadata'
 import { getCliStatus } from './status'
 import { sendRequest } from './transport'
@@ -185,7 +186,7 @@ export class RuntimeClient {
 
     throw new RuntimeClientError(
       'runtime_open_timeout',
-      'Timed out waiting for Orca to start. Run the Orca app manually and try again.'
+      `Timed out waiting for ${PRODUCT_DISPLAY_NAME} to start. Run the ${PRODUCT_DISPLAY_NAME} app manually and try again.`
     )
   }
 }

@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import type { CommandHandler } from '../dispatch'
 import { formatCliStatus, formatStatus, printResult } from '../format'
 import { RuntimeClientError, serveOrcaApp } from '../runtime-client'
+import { cliCommandName, PRODUCT_DISPLAY_NAME } from '../../shared/product-brand'
 
 function envRecord(): Record<string, string> {
   return Object.fromEntries(
@@ -63,7 +64,7 @@ export const CORE_HANDLERS: Record<string, CommandHandler> = {
     if (!paneKey) {
       throw new RuntimeClientError(
         'invalid_environment',
-        'orca claude-teams must be run inside an Orca terminal.'
+        `${cliCommandName()} claude-teams must be run inside an ${PRODUCT_DISPLAY_NAME} terminal.`
       )
     }
     const response = await client.call<{ launch: { env: Record<string, string> } }>(

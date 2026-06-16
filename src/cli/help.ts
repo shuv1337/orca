@@ -8,9 +8,17 @@ import { cliCommandName, PRODUCT_DISPLAY_NAME } from '../shared/product-brand'
 // at the print boundary so an agent reading `--help` copies the right command.
 // Applied exactly once (printHelp) — re-running would corrupt `orca-ide`.
 function brandHelp(text: string): string {
-  // Match `orca` only as a command invocation (followed by whitespace) so
-  // hyphenated identifiers like `orca-computer-use-macos` are left intact.
-  return text.replace(/\borca(?=\s)/g, cliCommandName()).replace(/\bOrca\b/g, PRODUCT_DISPLAY_NAME)
+  const command = cliCommandName()
+  // Rewrite `orca` only where it is a command invocation — line starts (with
+  // optional indentation and an optional `$ ` example marker), `Usage:` lines,
+  // and backticked snippets — never as a selector value like `name:orca` or a
+  // URL scheme like `orca://`. The `(?=[\s`]|$)` tail keeps hyphenated
+  // identifiers (`orca-computer-use-macos`) and `orca-ide` itself intact.
+  return text
+    .replace(/(^|\n)([ \t]*(?:\$ )?)orca(?=[\s`]|$)/g, `$1$2${command}`)
+    .replace(/(`)orca(?=[\s`]|$)/g, `$1${command}`)
+    .replace(/(\bUsage: )orca(?=[\s`]|$)/g, `$1${command}`)
+    .replace(/\bOrca\b/g, PRODUCT_DISPLAY_NAME)
 }
 
 const ROOT_HELP_TEXT = `orca

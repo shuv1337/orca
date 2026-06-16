@@ -5,6 +5,7 @@ import type {
   RuntimeWorktreeRecord
 } from '../shared/runtime-types'
 import { isPathInsideOrEqual } from '../shared/cross-platform-path'
+import { PRODUCT_DISPLAY_NAME } from '../shared/product-brand'
 import type { RuntimeClient } from './runtime-client'
 import { RuntimeClientError } from './runtime-client'
 import { getOptionalStringFlag, getRequiredStringFlag } from './flags'
@@ -75,7 +76,7 @@ export async function resolveCurrentWorktreeSelector(
   if (!enclosingWorktree) {
     throw new RuntimeClientError(
       'selector_not_found',
-      `No Orca-managed worktree contains the current directory: ${currentPath}`
+      `No ${PRODUCT_DISPLAY_NAME}-managed worktree contains the current directory: ${currentPath}`
     )
   }
 

@@ -64,3 +64,25 @@ export function applyProductBrand(value: string): string {
     .replace(/\bOrcas\b/g, PRODUCT_DISPLAY_NAME)
     .replace(/\bOrca\b(?! Mobile)/g, PRODUCT_DISPLAY_NAME)
 }
+
+/**
+ * Brand every string leaf of an i18n resource tree (templates + default
+ * strings) so the transform runs BEFORE i18next interpolation. Branding the
+ * resolved output instead would also rewrite interpolated user data — e.g. a
+ * branch named `fix-Orca` in `Deleted "{{value0}}".`. Returns a fresh tree;
+ * the on-disk locale JSON stays byte-identical to upstream (ADR-0002).
+ */
+export function brandResourceTree<T>(node: T): T {
+  if (typeof node === 'string') {
+    return applyProductBrand(node) as T
+  }
+  if (Array.isArray(node)) {
+    return node.map((item) => brandResourceTree(item)) as T
+  }
+  if (node && typeof node === 'object') {
+    return Object.fromEntries(
+      Object.entries(node).map(([key, value]) => [key, brandResourceTree(value)])
+    ) as T
+  }
+  return node
+}

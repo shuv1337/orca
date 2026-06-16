@@ -3,9 +3,11 @@
 Fork display identity for `shuv1337/orca` without breaking installs, agent skills,
 updater manifests, or macOS privacy permissions.
 
-**Status:** revised after grilling session (see `CONTEXT.md`, `docs/adr/0001`, `docs/adr/0002`)  
+**Status:** revised after grilling session (see `CONTEXT.md`, `docs/adr/0001`, `docs/adr/0002`)
+
 **Scope:** user-visible product name and packaging labels only; plus one bug fix —
-agent-facing CLI command strings must respect the per-platform command name.  
+agent-facing CLI command strings must respect the per-platform command name.
+
 **Out of scope (→ v2 deep rebrand):** OS identity rename + automatic userData
 migration, CLI binary rename (`orca`/`orca-ide` → `shuvorca`), Computer Use helper
 rename, repo slug. Deep renames of paths, env vars, and module names stay out.
