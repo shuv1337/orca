@@ -9,9 +9,22 @@ import {
   parseZellijSessionList,
   type ZellijSessionInfo
 } from '../../shared/zellij-session-list'
+import type { ZellijSessionDeleteResult } from '../../shared/zellij-session-delete'
 
 const execFileAsync = promisify(execFile)
 const ZELLIJ_COMMAND_TIMEOUT_MS = 5_000
+
+export type ZellijSessionExecutor = {
+  deleteSession: (name: string) => Promise<void>
+}
+
+const localZellijExecutor: ZellijSessionExecutor = {
+  deleteSession: async (name: string): Promise<void> => {
+    await execFileAsync('zellij', ['delete-session', '--force', name], {
+      timeout: ZELLIJ_COMMAND_TIMEOUT_MS
+    })
+  }
+}
 
 export async function listZellijSessions(): Promise<ZellijSessionInfo[]> {
   try {
@@ -39,7 +52,77 @@ export async function killZellijSession(name: string): Promise<void> {
   }
   // `delete-session --force` removes both live and EXITED (resurrectable)
   // sessions; `kill-session` only stops a running one and leaves the corpse.
-  await execFileAsync('zellij', ['delete-session', '--force', name], {
-    timeout: ZELLIJ_COMMAND_TIMEOUT_MS
-  })
+  await localZellijExecutor.deleteSession(name)
+}
+
+export async function killZellijSessions(
+  names: readonly string[],
+  executor: ZellijSessionExecutor = localZellijExecutor
+): Promise<ZellijSessionDeleteResult> {
+  const deleted: string[] = []
+  const failed: { name: string; error: string }[] = []
+  const seen = new Set<string>()
+
+  for (const rawName of names) {
+    const name = rawName.trim()
+    if (!name || seen.has(name)) {
+      continue
+    }
+    seen.add(name)
+
+    if (!isOrcaManagedZellijSessionName(name)) {
+      failed.push({ name, error: `Refusing to kill non-Orca Zellij session: ${name}` })
+      continue
+    }
+
+    try {
+      await executor.deleteSession(name)
+      deleted.push(name)
+    } catch (error) {
+      failed.push({
+        name,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
+  return { deleted, failed }
+}
+
+export async function cleanupZellijSessionsAfterWorktreeRemoval(args: {
+  deleteZellijSessionsOnSuccess?: boolean
+  zellijSessionNames?: readonly string[]
+  connectionId?: string | null
+  createSshExecutor?: (connectionId: string) => ZellijSessionExecutor | null
+}): Promise<string | undefined> {
+  if (args.deleteZellijSessionsOnSuccess !== true) {
+    return undefined
+  }
+  const names = args.zellijSessionNames ?? []
+  if (names.length === 0) {
+    return undefined
+  }
+
+  let executor: ZellijSessionExecutor | null = localZellijExecutor
+  if (args.connectionId) {
+    const createSshExecutor = args.createSshExecutor
+    executor = createSshExecutor ? createSshExecutor(args.connectionId) : null
+    if (!executor) {
+      return 'Zellij session cleanup skipped: SSH connection unavailable'
+    }
+  } else if (process.platform !== 'linux') {
+    return undefined
+  }
+
+  const result = await killZellijSessions(names, executor)
+  if (result.failed.length === 0) {
+    return undefined
+  }
+  const deletedCount = result.deleted.length
+  const failedCount = result.failed.length
+  console.warn(
+    `[zellij-cleanup] partial failure: deleted=${deletedCount} failed=${failedCount}`,
+    result.failed
+  )
+  return `Deleted ${deletedCount} Orca Zellij session(s); ${failedCount} failed`
 }

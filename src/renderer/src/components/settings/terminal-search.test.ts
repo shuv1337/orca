@@ -67,6 +67,13 @@ describe('getTerminalPaneSearchEntries', () => {
     ).toBe(true)
   })
 
+  it('includes the Zellij cleanup setting on Linux', () => {
+    const entries = getTerminalPaneSearchEntries({ isWindows: false, isMac: false })
+    expect(
+      entries.some((entry) => entry.title === 'Delete Zellij Sessions on Workspace Delete')
+    ).toBe(true)
+  })
+
   it('keeps terminal appearance settings in the Appearance search index', () => {
     const entriesWindows = getTerminalPaneSearchEntries({ isWindows: true, isMac: false })
     const entriesMac = getTerminalPaneSearchEntries({ isWindows: false, isMac: true })

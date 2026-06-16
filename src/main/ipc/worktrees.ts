@@ -78,6 +78,8 @@ import {
 } from './filesystem-auth'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import { killAllProcessesForWorktree } from '../runtime/worktree-teardown'
+import { cleanupZellijSessionsAfterWorktreeRemoval } from '../pty/zellij-session-control'
+import { createSshZellijSessionExecutor } from '../pty/zellij-session-ssh'
 import { clearProviderPtyState, getLocalPtyProvider } from './pty'
 import { removeWorktreeSymlinks } from './worktree-symlinks'
 import { track } from '../telemetry/client'
@@ -196,10 +198,20 @@ async function isAlreadyRemovedWorktreePath(repo: Repo, worktreePath: string): P
   return isWorktreePathMissing(worktreePath, (path) => fsProvider.stat(path))
 }
 
-function getWorktreeRemovalOptionsKey(args: { force?: boolean; skipArchive?: boolean }): string {
+function getWorktreeRemovalOptionsKey(args: {
+  force?: boolean
+  skipArchive?: boolean
+  deleteZellijSessionsOnSuccess?: boolean
+  zellijSessionNames?: string[]
+}): string {
   const forceKey = args.force === true ? 'force' : 'normal'
   const archiveKey = args.skipArchive === true ? 'skip-archive' : 'run-archive'
-  return `${forceKey}:${archiveKey}`
+  const zellijNames = args.zellijSessionNames ?? []
+  const zellijKey =
+    args.deleteZellijSessionsOnSuccess === true
+      ? `zellij:on:${[...zellijNames].sort().join('\u0001')}`
+      : 'zellij:off'
+  return `${forceKey}:${archiveKey}:${zellijKey}`
 }
 
 async function getArchiveHooksForRemoval(repo: Repo): Promise<OrcaHooks | null> {
@@ -1090,7 +1102,16 @@ export function registerWorktreeHandlers(
 
   ipcMain.handle(
     'worktrees:remove',
-    async (_event, args: { worktreeId: string; force?: boolean; skipArchive?: boolean }) => {
+    async (
+      _event,
+      args: {
+        worktreeId: string
+        force?: boolean
+        skipArchive?: boolean
+        deleteZellijSessionsOnSuccess?: boolean
+        zellijSessionNames?: string[]
+      }
+    ) => {
       const optionsKey = getWorktreeRemovalOptionsKey(args)
       const inFlightRemoval = worktreeRemovalsInFlight.get(args.worktreeId)
       if (inFlightRemoval) {
@@ -1108,6 +1129,20 @@ export function registerWorktreeHandlers(
         const repo = store.getRepo(repoId)
         if (!repo) {
           throw new Error(`Repo not found: ${repoId}`)
+        }
+        const finalizeRemoval = async (
+          result: RemoveWorktreeResult = {}
+        ): Promise<RemoveWorktreeResult> => {
+          const warning = await cleanupZellijSessionsAfterWorktreeRemoval({
+            deleteZellijSessionsOnSuccess: args.deleteZellijSessionsOnSuccess,
+            zellijSessionNames: args.zellijSessionNames,
+            connectionId: repo.connectionId ?? null,
+            createSshExecutor: createSshZellijSessionExecutor
+          })
+          if (!warning) {
+            return result
+          }
+          return { ...result, warning }
         }
         if (isFolderRepo(repo)) {
           if (args.worktreeId === getFolderWorkspaceRootId(repo)) {
@@ -1127,7 +1162,7 @@ export function registerWorktreeHandlers(
           removeWorktreeMetadataAndTransientState(store, args.worktreeId)
           preservedBranchCleanupByWorktreeId.delete(args.worktreeId)
           notifyWorktreesChanged(mainWindow, repoId)
-          return {}
+          return finalizeRemoval()
         }
 
         // Why: the renderer-supplied worktreeId contains a filesystem path.
@@ -1203,7 +1238,7 @@ export function registerWorktreeHandlers(
             removeWorktreeMetadataAndTransientState(store, args.worktreeId)
             preservedBranchCleanupByWorktreeId.delete(args.worktreeId)
             notifyWorktreesChanged(mainWindow, repoId)
-            return {}
+            return finalizeRemoval()
           }
           if (await isAlreadyRemovedWorktreePath(repo, worktreePath)) {
             if (!args.force && !removedMeta) {
@@ -1235,7 +1270,7 @@ export function registerWorktreeHandlers(
             removeWorktreeMetadataAndTransientState(store, args.worktreeId)
             preservedBranchCleanupByWorktreeId.delete(args.worktreeId)
             notifyWorktreesChanged(mainWindow, repoId)
-            return {}
+            return finalizeRemoval()
           }
           throw new Error(`Refusing to delete unregistered worktree path: ${worktreePath}`)
         }
@@ -1293,7 +1328,7 @@ export function registerWorktreeHandlers(
           runtime.clearOptimisticReconcileToken(args.worktreeId)
           removeWorktreeMetadataAndTransientState(store, args.worktreeId)
           notifyWorktreesChanged(mainWindow, repoId)
-          return removalResult ?? {}
+          return finalizeRemoval(removalResult ?? {})
         }
 
         // Why: `git worktree remove` (non-force) refuses to delete a worktree
@@ -1378,7 +1413,7 @@ export function registerWorktreeHandlers(
             preservedBranchCleanupByWorktreeId.delete(args.worktreeId)
             invalidateAuthorizedRootsCache()
             notifyWorktreesChanged(mainWindow, repoId)
-            return {}
+            return finalizeRemoval()
           }
           throw new Error(
             formatWorktreeRemovalError(error, canonicalWorktreePath, args.force ?? false)
@@ -1401,7 +1436,7 @@ export function registerWorktreeHandlers(
         invalidateAuthorizedRootsCache()
 
         notifyWorktreesChanged(mainWindow, repoId)
-        return removalResult ?? {}
+        return finalizeRemoval(removalResult ?? {})
       })()
       worktreeRemovalsInFlight.set(args.worktreeId, { optionsKey, promise: removal })
       try {

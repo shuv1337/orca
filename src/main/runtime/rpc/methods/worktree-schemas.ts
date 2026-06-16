@@ -193,7 +193,9 @@ export const WorktreeSet = WorktreeSelector.extend({
 
 export const WorktreeRemove = WorktreeSelector.extend({
   force: OptionalBoolean,
-  runHooks: OptionalBoolean
+  runHooks: OptionalBoolean,
+  deleteZellijSessionsOnSuccess: OptionalBoolean,
+  zellijSessionNames: z.array(z.string()).max(256).optional()
 })
 
 export const WorktreeForceDeleteBranch = WorktreeSelector.extend({

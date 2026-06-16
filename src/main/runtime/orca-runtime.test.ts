@@ -2703,7 +2703,7 @@ describe('OrcaRuntimeService', () => {
     const runtime = new OrcaRuntimeService(remoteStore as never)
 
     try {
-      await runtime.removeManagedWorktree('path:/remote/feature', true)
+      await runtime.removeManagedWorktree('path:/remote/feature', { force: true })
     } finally {
       unregisterSshGitProvider('ssh-1')
     }
@@ -2752,9 +2752,9 @@ describe('OrcaRuntimeService', () => {
     const runtime = new OrcaRuntimeService(remoteStore as never)
 
     try {
-      await expect(runtime.removeManagedWorktree('path:/remote/repo', true)).rejects.toThrow(
-        'Refusing to delete protected worktree path: /remote/repo'
-      )
+      await expect(
+        runtime.removeManagedWorktree('path:/remote/repo', { force: true })
+      ).rejects.toThrow('Refusing to delete protected worktree path: /remote/repo')
     } finally {
       unregisterSshGitProvider('ssh-1')
     }
@@ -14376,8 +14376,8 @@ describe('OrcaRuntimeService', () => {
       return {}
     })
 
-    const first = runtime.removeManagedWorktree(TEST_WORKTREE_ID, true)
-    const second = runtime.removeManagedWorktree(TEST_WORKTREE_ID, true)
+    const first = runtime.removeManagedWorktree(TEST_WORKTREE_ID, { force: true })
+    const second = runtime.removeManagedWorktree(TEST_WORKTREE_ID, { force: true })
 
     await removeStarted.promise
     await Promise.resolve()
@@ -14400,7 +14400,7 @@ describe('OrcaRuntimeService', () => {
     const first = runtime.removeManagedWorktree(TEST_WORKTREE_ID)
 
     await removeStarted.promise
-    await expect(runtime.removeManagedWorktree(TEST_WORKTREE_ID, true)).rejects.toThrow(
+    await expect(runtime.removeManagedWorktree(TEST_WORKTREE_ID, { force: true })).rejects.toThrow(
       'Worktree deletion already in progress'
     )
 
@@ -14421,7 +14421,7 @@ describe('OrcaRuntimeService', () => {
     try {
       vi.mocked(listWorktrees).mockResolvedValue([])
 
-      await expect(runtime.removeManagedWorktree(worktreeId, true)).resolves.toEqual({})
+      await expect(runtime.removeManagedWorktree(worktreeId, { force: true })).resolves.toEqual({})
 
       expect(removeWorktree).not.toHaveBeenCalled()
       expect(removeWorktreeMeta).toHaveBeenCalledWith(worktreeId)
@@ -14499,7 +14499,7 @@ describe('OrcaRuntimeService', () => {
     try {
       vi.mocked(listWorktrees).mockResolvedValue([])
 
-      await expect(runtime.removeManagedWorktree(worktreeId, true)).resolves.toEqual({})
+      await expect(runtime.removeManagedWorktree(worktreeId, { force: true })).resolves.toEqual({})
 
       await expect(lstat(orphanPath)).rejects.toMatchObject({ code: 'ENOENT' })
       expect(removeWorktree).not.toHaveBeenCalled()
@@ -14559,9 +14559,9 @@ describe('OrcaRuntimeService', () => {
     const runtime = new OrcaRuntimeService(runtimeStore as never)
 
     try {
-      await expect(runtime.removeManagedWorktree(`id:${worktreeId}`, true)).rejects.toThrow(
-        'SSH filesystem provider unavailable'
-      )
+      await expect(
+        runtime.removeManagedWorktree(`id:${worktreeId}`, { force: true })
+      ).rejects.toThrow('SSH filesystem provider unavailable')
 
       await expect(lstat(localPath)).resolves.toBeTruthy()
       expect(removeWorktree).not.toHaveBeenCalled()
@@ -14581,7 +14581,7 @@ describe('OrcaRuntimeService', () => {
     try {
       vi.mocked(listWorktrees).mockResolvedValue([])
 
-      await expect(runtime.removeManagedWorktree(worktreeId, true)).rejects.toThrow(
+      await expect(runtime.removeManagedWorktree(worktreeId, { force: true })).rejects.toThrow(
         'Refusing to delete unregistered worktree path'
       )
 
@@ -14623,7 +14623,9 @@ describe('OrcaRuntimeService', () => {
       }
     })
 
-    await expect(runtime.removeManagedWorktree(TEST_WORKTREE_ID, true, true)).rejects.toThrow(
+    await expect(
+      runtime.removeManagedWorktree(TEST_WORKTREE_ID, { force: true, runHooks: true })
+    ).rejects.toThrow(
       `Refusing to delete worktree because it contains another registered worktree: ${TEST_WORKTREE_PATH}/child`
     )
 
@@ -14710,7 +14712,7 @@ describe('OrcaRuntimeService', () => {
     vi.mocked(runHook).mockResolvedValue({ success: true, output: '' })
     vi.mocked(removeWorktree).mockResolvedValue({})
 
-    await runtime.removeManagedWorktree(TEST_WORKTREE_ID, false, true)
+    await runtime.removeManagedWorktree(TEST_WORKTREE_ID, { runHooks: true })
 
     expect(runHook).toHaveBeenCalledWith(
       'archive',

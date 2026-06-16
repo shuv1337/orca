@@ -530,6 +530,23 @@ export function TerminalPane({
                   })
                 }
               />
+              <SettingsSwitchRow
+                label={translate(
+                  'auto.components.settings.TerminalPane.zellij_cleanup_label',
+                  'Delete Zellij Sessions on Workspace Delete'
+                )}
+                description={translate(
+                  'auto.components.settings.TerminalPane.zellij_cleanup_description',
+                  'After a workspace delete succeeds, remove Orca-managed Zellij sessions for that workspace only.'
+                )}
+                checked={settings.terminalDeleteZellijSessionsOnWorktreeDelete}
+                onChange={() =>
+                  updateSettings({
+                    terminalDeleteZellijSessionsOnWorktreeDelete:
+                      !settings.terminalDeleteZellijSessionsOnWorktreeDelete
+                  })
+                }
+              />
             </SearchableSetting>
           )}
         </div>

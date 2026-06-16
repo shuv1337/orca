@@ -9,6 +9,7 @@ import type {
 } from '../shared/hosted-review'
 import type { NativeFileDropPayload } from '../shared/native-file-drop'
 import type { ZellijSessionInfo } from '../shared/zellij-session-list'
+import type { ZellijSessionDeleteResult } from '../shared/zellij-session-delete'
 import type { AppIdentity } from '../shared/app-identity'
 import type { TerminalPaneSplitSource } from '../shared/feature-education-telemetry'
 import type { TaskSourceContext } from '../shared/task-source-context'
@@ -946,6 +947,8 @@ export type PreloadApi = {
       worktreeId: string
       force?: boolean
       skipArchive?: boolean
+      deleteZellijSessionsOnSuccess?: boolean
+      zellijSessionNames?: string[]
     }) => Promise<RemoveWorktreeResult>
     forceDeletePreservedBranch: (args: {
       worktreeId: string
@@ -1029,6 +1032,7 @@ export type PreloadApi = {
     isZellijWrappingAllowed: () => Promise<boolean>
     listZellijSessions: () => Promise<ZellijSessionInfo[]>
     killZellijSession: (name: string) => Promise<void>
+    killZellijSessions: (names: string[]) => Promise<ZellijSessionDeleteResult>
     write: (id: string, data: string) => void
     writeAccepted: (id: string, data: string) => Promise<boolean>
     resize: (id: string, cols: number, rows: number) => void

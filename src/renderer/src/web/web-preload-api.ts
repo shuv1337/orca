@@ -27,6 +27,7 @@ import type {
 } from '../../../shared/types'
 import type { SkillDiscoveryResult } from '../../../shared/skills'
 import type { ZellijSessionInfo } from '../../../shared/zellij-session-list'
+import type { ZellijSessionDeleteResult } from '../../../shared/zellij-session-delete'
 import {
   getDefaultOnboardingState,
   getDefaultSettings,
@@ -1143,11 +1144,20 @@ function createWorktreesApi(): NonNullable<Partial<PreloadApi>['worktrees']> {
         sourceBranch,
         isCrossRepository
       }),
-    remove: async ({ worktreeId, force }) => {
+    remove: async ({
+      worktreeId,
+      force,
+      skipArchive,
+      deleteZellijSessionsOnSuccess,
+      zellijSessionNames
+    }) => {
       invalidateRuntimeWorktreeCaches()
       return callRuntimeResult<RemoveWorktreeResult>('worktree.rm', {
         worktree: toRuntimeWorktreeSelector(worktreeId),
-        force
+        force,
+        runHooks: skipArchive ? false : undefined,
+        deleteZellijSessionsOnSuccess,
+        zellijSessionNames
       })
     },
     forceDeletePreservedBranch: ({ worktreeId, branchName, expectedHead }) =>
@@ -2305,6 +2315,8 @@ function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
     killZellijSession: async (name: string) => {
       await callRuntimeResult('terminal.zellij.kill', { name })
     },
+    killZellijSessions: async (names: string[]) =>
+      callRuntimeResult<ZellijSessionDeleteResult>('terminal.zellij.killMany', { names }),
     write: () => {},
     writeAccepted: () => Promise.resolve(false),
     resize: () => {},

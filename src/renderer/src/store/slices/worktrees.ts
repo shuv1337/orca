@@ -24,6 +24,7 @@ import {
   type WorktreeSlice
 } from './worktree-helpers'
 import { ensureHooksConfirmed } from '@/lib/ensure-hooks-confirmed'
+import { collectWorktreeZellijSessionNames } from '@/lib/worktree-zellij-session-names'
 import { tabHasLivePty } from '@/lib/tab-has-live-pty'
 import {
   callRuntimeRpc,
@@ -1513,13 +1514,34 @@ export const createWorktreeSlice: StateCreator<AppState, [], [], WorktreeSlice> 
       const worktreeBeforeRemoval = get()
         .allWorktrees()
         .find((entry) => entry.id === worktreeId)
+      const deleteZellijSessionsOnSuccess =
+        get().settings?.terminalDeleteZellijSessionsOnWorktreeDelete === true
+      const zellijSessionNames = deleteZellijSessionsOnSuccess
+        ? collectWorktreeZellijSessionNames({
+            worktreeId,
+            tabs: get().tabsByWorktree[worktreeId] ?? [],
+            terminalLayoutsByTabId: get().terminalLayoutsByTabId
+          })
+        : undefined
       const target = getActiveRuntimeTarget(settingsForWorktreeOwner(get(), worktreeId))
       const removalResult = await (target.kind === 'local'
-        ? window.api.worktrees.remove({ worktreeId, force, skipArchive })
+        ? window.api.worktrees.remove({
+            worktreeId,
+            force,
+            skipArchive,
+            deleteZellijSessionsOnSuccess,
+            zellijSessionNames
+          })
         : callRuntimeRpc<RemoveWorktreeResult>(
             target,
             'worktree.rm',
-            { worktree: toRuntimeWorktreeSelector(worktreeId), force, runHooks: !skipArchive },
+            {
+              worktree: toRuntimeWorktreeSelector(worktreeId),
+              force,
+              runHooks: !skipArchive,
+              deleteZellijSessionsOnSuccess,
+              zellijSessionNames
+            },
             { timeoutMs: 60_000 }
           ))
 
