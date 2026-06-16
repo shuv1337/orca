@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
 import {
   ALL_GROUP_META,
   buildRows,
@@ -338,7 +339,12 @@ describe('buildRows with pinned worktrees', () => {
 
     expect(rows).toMatchObject([
       { type: 'header', key: 'project:github:stablyai/orca', label: 'Orca', count: 2 },
-      { type: 'item', worktree: { id: worktree.id }, hostContextLabel: 'Local Mac' },
+      // Why: derived label, so reflects the test-runner OS rather than a fixed "Local Mac".
+      {
+        type: 'item',
+        worktree: { id: worktree.id },
+        hostContextLabel: getLocalExecutionHostLabel()
+      },
       { type: 'item', worktree: { id: remoteWorktree.id }, hostContextLabel: 'gpu-vm' }
     ])
   })

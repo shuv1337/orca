@@ -1,5 +1,6 @@
 import {
   LOCAL_EXECUTION_HOST_ID,
+  getLocalExecutionHostLabel,
   getSettingsFocusedExecutionHostId,
   parseExecutionHostId,
   toRuntimeExecutionHostId,
@@ -177,12 +178,15 @@ export function buildExecutionHostRegistry(args: {
   // Why: user-chosen per-host display labels override the derived label so a
   // rename in the host menu/settings shows everywhere the registry feeds.
   hostLabelOverrides?: ReadonlyMap<ExecutionHostId, string>
+  // Why: defaults to the real client OS; injectable so tests stay deterministic
+  // across the platform the test runner happens to use.
+  localPlatform?: NodeJS.Platform | null
 }): ExecutionHostRegistryEntry[] {
   const hosts = new Map<ExecutionHostId, ExecutionHostRegistryEntry>()
   hosts.set(LOCAL_EXECUTION_HOST_ID, {
     id: LOCAL_EXECUTION_HOST_ID,
     kind: 'local',
-    label: 'Local Mac',
+    label: getLocalExecutionHostLabel(args.localPlatform),
     detail: 'This computer',
     health: 'local'
   })

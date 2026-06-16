@@ -3,6 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
 import { getProviderRuntimeContextKey } from '@/lib/provider-runtime-context'
 import { LinearIntegrationCard } from './task-tracker-integration-cards'
 
@@ -106,7 +107,7 @@ describe('LinearIntegrationCard account scope', () => {
 
     const rendered = await renderCard()
 
-    expect(rendered.textContent).toContain('Account scope: Local Mac')
+    expect(rendered.textContent).toContain(`Account scope: ${getLocalExecutionHostLabel()}`)
     expect(rendered.textContent).toContain(
       'Credentials and account checks for this provider are owned by this desktop client. Use Settings > Remote Orca Servers > Advanced to edit server-owned credentials.'
     )

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
 import { getPaletteHostBadge } from './palette-host-badge'
 import { buildSidebarHostOptions } from '../sidebar/sidebar-host-options'
 
@@ -8,6 +9,9 @@ const connectedSshStates = (targetId: string) =>
   new Map([
     [targetId, { targetId, status: 'connected' as const, error: null, reconnectAttempt: 0 }]
   ])
+
+// Why: local host label is OS-derived; assert against the helper.
+const LOCAL_LABEL = getLocalExecutionHostLabel()
 
 describe('getPaletteHostBadge', () => {
   it('returns null for single-host (local-only) workspaces', () => {
@@ -42,7 +46,7 @@ describe('getPaletteHostBadge', () => {
 
     expect(getPaletteHostBadge({ connectionId: null }, hosts)).toEqual({
       hostId: 'local',
-      label: 'Local Mac'
+      label: LOCAL_LABEL
     })
   })
 
@@ -112,7 +116,7 @@ describe('getPaletteHostBadge', () => {
 
     expect(getPaletteHostBadge({}, hosts)).toEqual({
       hostId: 'local',
-      label: 'Local Mac'
+      label: LOCAL_LABEL
     })
   })
 

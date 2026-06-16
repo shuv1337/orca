@@ -119,7 +119,46 @@ export function getSettingsFocusedExecutionHostId(
     : LOCAL_EXECUTION_HOST_ID
 }
 
-export function getExecutionHostLabel(id: ExecutionHostScope): string {
+// Why: the local host label used to be hardcoded "Local Mac", which is wrong on
+// Linux/Windows. Detect the actual OS so the Host menu and registry read
+// correctly across platforms. Works in both the renderer (navigator) and the
+// main process (process.platform) since this module is shared.
+export function detectLocalPlatform(): NodeJS.Platform | null {
+  if (typeof process !== 'undefined' && process.platform) {
+    return process.platform
+  }
+  if (typeof navigator !== 'undefined' && navigator.userAgent) {
+    const ua = navigator.userAgent
+    if (ua.includes('Windows')) {
+      return 'win32'
+    }
+    if (ua.includes('Mac')) {
+      return 'darwin'
+    }
+    return 'linux'
+  }
+  return null
+}
+
+export function getLocalExecutionHostLabel(
+  platform: NodeJS.Platform | null = detectLocalPlatform()
+): string {
+  switch (platform) {
+    case 'win32':
+      return 'Local Windows'
+    case 'linux':
+      return 'Local Linux'
+    case 'darwin':
+      return 'Local Mac'
+    default:
+      return 'Local'
+  }
+}
+
+export function getExecutionHostLabel(
+  id: ExecutionHostScope,
+  localPlatform: NodeJS.Platform | null = detectLocalPlatform()
+): string {
   if (id === ALL_EXECUTION_HOSTS_SCOPE) {
     return 'All hosts'
   }
@@ -129,7 +168,7 @@ export function getExecutionHostLabel(id: ExecutionHostScope): string {
   }
   switch (parsed.kind) {
     case 'local':
-      return 'Local Mac'
+      return getLocalExecutionHostLabel(localPlatform)
     case 'ssh':
       return parsed.targetId
     case 'runtime':

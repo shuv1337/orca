@@ -7,7 +7,8 @@ describe('execution host registry', () => {
     expect(
       buildExecutionHostRegistry({
         repos: [{ connectionId: null }],
-        settings: { activeRuntimeEnvironmentId: null }
+        settings: { activeRuntimeEnvironmentId: null },
+        localPlatform: 'darwin'
       })
     ).toEqual([
       {
@@ -184,7 +185,8 @@ describe('execution host registry', () => {
       repos: [{ connectionId: 'repo-ssh' }],
       settings: { activeRuntimeEnvironmentId: null },
       sshTargetLabels: new Map([['repo-ssh', 'Derived SSH']]),
-      hostLabelOverrides: new Map([['ssh:other', 'Unrelated']])
+      hostLabelOverrides: new Map([['ssh:other', 'Unrelated']]),
+      localPlatform: 'darwin'
     })
 
     expect(hosts).toMatchObject([

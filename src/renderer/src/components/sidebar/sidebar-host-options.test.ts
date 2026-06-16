@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
 import {
   buildSidebarHostOptions,
   buildSidebarHostScopeOptions,
@@ -6,6 +7,10 @@ import {
   getSidebarHostHealthLabel,
   shouldShowHostScopeControls
 } from './sidebar-host-options'
+
+// Why: local host label is OS-derived; assert against the helper so this holds
+// on any test-runner OS, not just macOS.
+const LOCAL_LABEL = getLocalExecutionHostLabel()
 
 describe('sidebar host options', () => {
   it('hides host controls for local-only workspaces', () => {
@@ -18,7 +23,7 @@ describe('sidebar host options', () => {
     expect(hosts).toEqual([
       {
         id: 'local',
-        label: 'Local Mac',
+        label: LOCAL_LABEL,
         detail: 'This computer',
         kind: 'local',
         health: 'local',
@@ -173,8 +178,8 @@ describe('sidebar host options', () => {
     })
 
     expect(buildSidebarHostScopeOptions(hosts)).toMatchObject([
-      { id: 'all', label: 'All hosts', detail: 'Local Mac, Builder', health: 'mixed' },
-      { id: 'local', label: 'Local Mac', health: 'local' },
+      { id: 'all', label: 'All hosts', detail: `${LOCAL_LABEL}, Builder`, health: 'mixed' },
+      { id: 'local', label: LOCAL_LABEL, health: 'local' },
       { id: 'ssh:ssh-1', label: 'Builder', health: 'disconnected' }
     ])
   })

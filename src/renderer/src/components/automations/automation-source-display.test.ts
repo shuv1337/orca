@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
 import type { TaskSourceContext } from '../../../../shared/task-source-context'
 import { getAutomationSourceDisplay } from './automation-source-display'
+
+// Why: local host label is OS-derived; assert against the helper.
+const LOCAL_LABEL = getLocalExecutionHostLabel()
 
 describe('automation source display', () => {
   it('summarizes repo-backed source context separately from run location', () => {
@@ -42,9 +46,8 @@ describe('automation source display', () => {
     }
 
     expect(getAutomationSourceDisplay(sourceContext)).toEqual({
-      label: 'Linear · Local Mac · Saved Linear workspace',
-      title:
-        'Linear source · Host: Local Mac · Account: Linear API key · Source: Saved Linear workspace'
+      label: `Linear · ${LOCAL_LABEL} · Saved Linear workspace`,
+      title: `Linear source · Host: ${LOCAL_LABEL} · Account: Linear API key · Source: Saved Linear workspace`
     })
   })
 

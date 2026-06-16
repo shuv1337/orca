@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
+import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
 import { GitHubRateLimitPanel } from '@/components/github/github-rate-limit-display'
 import { GitLabRateLimitPanel } from '@/components/gitlab/gitlab-rate-limit-display'
 
@@ -33,7 +34,7 @@ describe('provider rate-limit panels account scope', () => {
 
     const markup = renderToStaticMarkup(<GitHubRateLimitPanel />)
 
-    expect(markup).toContain('Budget scope: Local Mac')
+    expect(markup).toContain(`Budget scope: ${getLocalExecutionHostLabel()}`)
     expect(markup).toContain(
       'GitHub API budget is fetched from the CLI on this desktop client. Use Settings &gt; Remote Orca Servers &gt; Advanced to view server-owned budgets.'
     )
