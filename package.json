@@ -1,6 +1,6 @@
 {
   "name": "orca",
-  "version": "1.4.76-rc.0",
+  "version": "0.0.1",
   "description": "shuvorca — fork of Orca, a next-gen IDE for parallel agentic development",
   "homepage": "https://github.com/shuv1337/orca",
   "author": "shuv1337",
