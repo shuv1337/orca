@@ -78,7 +78,11 @@ import { createCommandCodeOutputStatusDetector } from './command-code-output-sta
 import type { PtyDataMeta } from './pty-dispatcher'
 import { getEagerPtyBufferHandle } from './pty-dispatcher'
 import { createTerminalGitHubPRLinkDetector } from '@/lib/terminal-github-pr-link-detector'
-import { installConptyDeviceAttributesHandler } from './terminal-conpty-device-attributes'
+import {
+  CONPTY_DA1_RESPONSE,
+  createTerminalPixelSizeQueryResponder,
+  installTerminalCapabilityReplyHandlers
+} from './terminal-capability-replies'
 import {
   cancelScheduledHiddenOutputRestore,
   scheduleHiddenOutputRestore
@@ -131,8 +135,6 @@ const INACTIVE_FOREGROUND_IMMEDIATE_BUDGET_CHARS = 32 * 1024
 // terminal state is unavailable, so the user has an explicit loss signal.
 const HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING =
   '\x18\x1b[0m\r\n[Orca skipped hidden terminal output because main recovery was unavailable.]\r\n'
-const SESSION_RESTORED_BANNER = '\r\n\x1b[2m--- session restored ---\x1b[0m\r\n\r\n'
-
 type E2eTerminalPtyDataInjectionApi = {
   inject: (paneKey: string, data: string, meta?: PtyDataMeta) => boolean
   keys: () => string[]
@@ -466,7 +468,12 @@ function isStatelessRendererReplyCsiQuery(sequence: string): boolean {
   if (sequence.endsWith('c')) {
     return true
   }
-  return sequence === '\x1b[5n'
+  return (
+    sequence === '\x1b[5n' ||
+    sequence === '\x1b[>q' ||
+    sequence === '\x1b[14t' ||
+    sequence === '\x1b[16t'
+  )
 }
 
 function isStatefulRendererReplyCsiQuery(sequence: string): boolean {
@@ -1705,13 +1712,17 @@ export function connectPanePty(
     ? createRemoteRuntimePtyTransport(runtimeEnvironmentId, transportOptions)
     : createIpcPtyTransport(transportOptions)
   deps.paneTransportsRef.current.set(pane.id, transport)
-  const conptyDeviceAttributesDisposable = isNativeWindowsConpty
-    ? installConptyDeviceAttributesHandler({
-        parser: pane.terminal.parser,
-        sendInput: (data) => transport.sendInput(data),
-        isReplaying: () => isPaneReplaying(deps.replayingPanesRef, pane.id)
-      })
-    : null
+  const terminalCapabilityRepliesDisposable = installTerminalCapabilityReplyHandlers({
+    terminal: pane.terminal,
+    parser: pane.terminal.parser,
+    sendInput: (data) => transport.sendInput(data),
+    isReplaying: () => isPaneReplaying(deps.replayingPanesRef, pane.id),
+    ...(isNativeWindowsConpty ? { da1Response: CONPTY_DA1_RESPONSE } : {})
+  })
+  const respondToTerminalPixelSizeQueries = createTerminalPixelSizeQueryResponder(
+    pane.terminal,
+    (data) => transport.sendInput(data)
+  )
 
   const onDataDisposable = pane.terminal.onData((data) => {
     // Why: xterm auto-replies to embedded query sequences (DA1, DECRQM,
@@ -1972,20 +1983,13 @@ export function connectPanePty(
     let pendingStartupCommand =
       shouldDeliverStartupViaTerminalPaste || connectionId ? (paneStartup?.command ?? null) : null
     let pendingStartupEnv: Record<string, string> | null = paneStartup?.env ?? null
-    let sessionRestoredBannerWritten = false
-    const writeSessionRestoredBanner = (writeBanner?: (data: string) => void): void => {
-      if (sessionRestoredBannerWritten) {
+    let sessionRestoredBannerShown = false
+    const showSessionRestoredBanner = (): void => {
+      if (sessionRestoredBannerShown) {
         return
       }
-      sessionRestoredBannerWritten = true
-      if (writeBanner) {
-        writeBanner(SESSION_RESTORED_BANNER)
-        return
-      }
-      writeTerminalOutput(pane.terminal, SESSION_RESTORED_BANNER, {
-        foreground: true,
-        beforeWrite: beforeTerminalOutputWrite
-      })
+      sessionRestoredBannerShown = true
+      deps.onShowSessionRestoredBanner(pane.id)
     }
     const getColdRestoreAgentResumePlatform = (): NodeJS.Platform => {
       if (connectionId || (worktree?.path && isWslUncPath(worktree.path))) {
@@ -2039,9 +2043,7 @@ export function connectPanePty(
         ...(shellOverride ? { shellCommand: shellOverride } : {})
       })
     }
-    const prepareColdRestoreAgentResumeCommand = (
-      writeBanner?: (data: string) => void
-    ): boolean => {
+    const prepareColdRestoreAgentResumeCommand = (): boolean => {
       if (pendingStartupCommand) {
         return false
       }
@@ -2075,7 +2077,7 @@ export function connectPanePty(
       pendingStartupCommand = startupPlan.launchCommand
       pendingStartupEnv = startupPlan.env ?? null
       if (sleepingRecord) {
-        writeSessionRestoredBanner(writeBanner)
+        showSessionRestoredBanner()
       }
       if (!useLiveEntry && sleepingRecord) {
         state.clearSleepingAgentSession(cacheKey)
@@ -3018,6 +3020,7 @@ export function connectPanePty(
         recordAgentHibernationPaneOutput(cacheKey)
       }
       resetHiddenOutputRestoreIfPtyChanged()
+      respondToTerminalPixelSizeQueries(data)
       observeTerminalBracketedPasteModeOutput(pane.terminal, data)
       for (const link of observeTerminalGitHubPRLink(data)) {
         useAppStore.getState().observeTerminalGitHubPullRequestLink(deps.worktreeId, link)
@@ -3181,7 +3184,7 @@ export function connectPanePty(
         // land in the new shell's stdin. See replay-guard.ts.
         writeReplayData('\x1b[2J\x1b[3J\x1b[H')
         writeReplayData(connectResult.coldRestore.scrollback)
-        const didPrepareResume = prepareColdRestoreAgentResumeCommand(writeReplayData)
+        const didPrepareResume = prepareColdRestoreAgentResumeCommand()
         // Cold-restore means the daemon lost the session and spawned a
         // fresh shell — no TUI is consuming the mode-setting bytes that a
         // crashed TUI (e.g. Claude's \e[?1004h) left in the scrollback, so
@@ -3764,7 +3767,7 @@ export function connectPanePty(
         connectFrame = null
       }
       onDataDisposable.dispose()
-      conptyDeviceAttributesDisposable?.dispose()
+      terminalCapabilityRepliesDisposable.dispose()
       onResizeDisposable.dispose()
       pane.container.removeEventListener(PANE_PTY_RESIZE_HOLD_FLUSH_EVENT, onHeldPtyResizeFlush)
       geometryReportObserver?.disconnect()
