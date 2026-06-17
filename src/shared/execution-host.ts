@@ -13,6 +13,36 @@ export type ParsedExecutionHost =
   | { kind: 'ssh'; id: `ssh:${string}`; targetId: string }
   | { kind: 'runtime'; id: `runtime:${string}`; environmentId: string }
 
+function getCurrentLocalPlatform(): NodeJS.Platform | null {
+  const globalNavigator = (globalThis as { navigator?: { userAgent?: string; platform?: string } })
+    .navigator
+  const userAgent = globalNavigator?.userAgent || globalNavigator?.platform || ''
+  if (/Windows/i.test(userAgent)) {
+    return 'win32'
+  }
+  if (/Mac/i.test(userAgent)) {
+    return 'darwin'
+  }
+  if (/Linux|X11/i.test(userAgent)) {
+    return 'linux'
+  }
+  return typeof process === 'undefined' ? null : process.platform
+}
+
+export function getLocalExecutionHostLabel(platform: NodeJS.Platform | null = null): string {
+  const localPlatform = platform ?? getCurrentLocalPlatform()
+  if (localPlatform === 'darwin') {
+    return 'Local Mac'
+  }
+  if (localPlatform === 'win32') {
+    return 'Local Windows'
+  }
+  if (localPlatform === 'linux') {
+    return 'Local Linux'
+  }
+  return 'This computer'
+}
+
 function normalizeHostPart(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
@@ -119,45 +149,9 @@ export function getSettingsFocusedExecutionHostId(
     : LOCAL_EXECUTION_HOST_ID
 }
 
-// Why: the local host label used to be hardcoded "Local Mac", which is wrong on
-// Linux/Windows. Detect the actual OS so the Host menu and registry read
-// correctly across platforms. Works in both the renderer (navigator) and the
-// main process (process.platform) since this module is shared.
-export function detectLocalPlatform(): NodeJS.Platform | null {
-  if (typeof process !== 'undefined' && process.platform) {
-    return process.platform
-  }
-  if (typeof navigator !== 'undefined' && navigator.userAgent) {
-    const ua = navigator.userAgent
-    if (ua.includes('Windows')) {
-      return 'win32'
-    }
-    if (ua.includes('Mac')) {
-      return 'darwin'
-    }
-    return 'linux'
-  }
-  return null
-}
-
-export function getLocalExecutionHostLabel(
-  platform: NodeJS.Platform | null = detectLocalPlatform()
-): string {
-  if (platform === 'win32') {
-    return 'Local Windows'
-  }
-  if (platform === 'linux') {
-    return 'Local Linux'
-  }
-  if (platform === 'darwin') {
-    return 'Local Mac'
-  }
-  return 'Local'
-}
-
 export function getExecutionHostLabel(
   id: ExecutionHostScope,
-  localPlatform: NodeJS.Platform | null = detectLocalPlatform()
+  localPlatform: NodeJS.Platform | null = null
 ): string {
   if (id === ALL_EXECUTION_HOSTS_SCOPE) {
     return 'All hosts'

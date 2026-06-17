@@ -3,9 +3,6 @@ import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
 import type { TaskSourceContext } from '../../../../shared/task-source-context'
 import { getAutomationSourceDisplay } from './automation-source-display'
 
-// Why: local host label is OS-derived; assert against the helper.
-const LOCAL_LABEL = getLocalExecutionHostLabel()
-
 describe('automation source display', () => {
   it('summarizes repo-backed source context separately from run location', () => {
     const sourceContext: TaskSourceContext = {
@@ -45,9 +42,11 @@ describe('automation source display', () => {
       }
     }
 
+    const localHostLabel = getLocalExecutionHostLabel()
+
     expect(getAutomationSourceDisplay(sourceContext)).toEqual({
-      label: `Linear · ${LOCAL_LABEL} · Saved Linear workspace`,
-      title: `Linear source · Host: ${LOCAL_LABEL} · Account: Linear API key · Source: Saved Linear workspace`
+      label: `Linear \u00b7 ${localHostLabel} \u00b7 Saved Linear workspace`,
+      title: `Linear source \u00b7 Host: ${localHostLabel} \u00b7 Account: Linear API key \u00b7 Source: Saved Linear workspace`
     })
   })
 

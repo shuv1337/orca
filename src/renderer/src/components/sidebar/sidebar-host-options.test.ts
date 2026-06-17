@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
+import { getExecutionHostLabel } from '../../../../shared/execution-host'
 import {
   buildSidebarHostOptions,
   buildSidebarHostScopeOptions,
@@ -8,9 +8,7 @@ import {
   shouldShowHostScopeControls
 } from './sidebar-host-options'
 
-// Why: local host label is OS-derived; assert against the helper so this holds
-// on any test-runner OS, not just macOS.
-const LOCAL_LABEL = getLocalExecutionHostLabel()
+const LOCAL_HOST_LABEL = getExecutionHostLabel('local')
 
 describe('sidebar host options', () => {
   it('hides host controls for local-only workspaces', () => {
@@ -23,7 +21,7 @@ describe('sidebar host options', () => {
     expect(hosts).toEqual([
       {
         id: 'local',
-        label: LOCAL_LABEL,
+        label: LOCAL_HOST_LABEL,
         detail: 'This computer',
         kind: 'local',
         health: 'local',
@@ -178,8 +176,8 @@ describe('sidebar host options', () => {
     })
 
     expect(buildSidebarHostScopeOptions(hosts)).toMatchObject([
-      { id: 'all', label: 'All hosts', detail: `${LOCAL_LABEL}, Builder`, health: 'mixed' },
-      { id: 'local', label: LOCAL_LABEL, health: 'local' },
+      { id: 'all', label: 'All hosts', detail: `${LOCAL_HOST_LABEL}, Builder`, health: 'mixed' },
+      { id: 'local', label: LOCAL_HOST_LABEL, health: 'local' },
       { id: 'ssh:ssh-1', label: 'Builder', health: 'disconnected' }
     ])
   })

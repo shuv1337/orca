@@ -21,6 +21,7 @@ import type { PtyTransport } from './pty-transport'
 import { fitPanes, isWindowsUserAgent, shellEscapePath } from './pane-helpers'
 import { getConnectionId } from '@/lib/connection-context'
 import { resolveTerminalDropTargetShell } from './terminal-drop-handler'
+import { recordTerminalUserInputForLeaf } from './terminal-input-activity'
 import { EMPTY_LAYOUT, serializeTerminalLayout } from './layout-serialization'
 import { makePaneKey } from '../../../../shared/stable-pane-id'
 import {
@@ -33,12 +34,14 @@ import { useTerminalKeyboardShortcuts, type SearchState } from './keyboard-handl
 import type { MacOptionAsAlt } from './terminal-shortcut-policy'
 import { useEffectiveMacOptionAsAlt } from '@/lib/keyboard-layout/use-effective-mac-option-as-alt'
 import { useTerminalFontZoom } from './useTerminalFontZoom'
-import CloseTerminalDialog from './CloseTerminalDialog'
+import CloseTerminalDialog, { type CloseTerminalDialogCopyKind } from './CloseTerminalDialog'
 import { MobileDriverOverlay } from './MobileDriverOverlay'
 import { TerminalErrorToast } from './TerminalErrorToast'
 import { TerminalSessionStateSaveFailureDialog } from './TerminalSessionStateSaveFailureDialog'
 import TerminalContextMenu from './TerminalContextMenu'
 import { TerminalAgentSessionForkDialog } from './TerminalAgentSessionForkDialog'
+import { SessionRestoredBanner } from './SessionRestoredBanner'
+import { useSessionRestoredBannerDismiss } from './useSessionRestoredBannerDismiss'
 import { useSystemPrefersDark } from './use-system-prefers-dark'
 import { useTerminalPaneGlobalEffects } from './use-terminal-pane-global-effects'
 import { useTerminalPaneLifecycle } from './use-terminal-pane-lifecycle'
@@ -213,7 +216,10 @@ export default function TerminalPane({
   const searchOpenRef = useRef(false)
   searchOpenRef.current = searchOpen
   const searchStateRef = useRef<SearchState>({ query: '', caseSensitive: false, regex: false })
-  const [closeConfirmPaneId, setCloseConfirmPaneId] = useState<number | null>(null)
+  const [pendingCloseConfirmation, setPendingCloseConfirmation] = useState<{
+    paneId: number
+    copyKind: CloseTerminalDialogCopyKind
+  } | null>(null)
   const [quickCommandEditorOpen, setQuickCommandEditorOpen] = useState(false)
   // Why: the terminal menu can be the first quick-command entry point, so each
   // Add action starts with a fresh draft instead of reusing cancelled text.
@@ -412,6 +418,9 @@ export default function TerminalPane({
   // xterm may not know multi-line text needs bracketed-paste protection.
   const forceBracketedMultilineTextPaste = isWindowsUserAgent()
   const [startup] = useState(() => useAppStore.getState().pendingStartupByTabId[tabId])
+  const [showSessionRestoredBanner, setShowSessionRestoredBanner] = useState(
+    () => startup?.showSessionRestoredBanner === true
+  )
   const shouldMeasureHiddenStartup = startup !== undefined && !isVisible
   const consumeTabStartupCommand = useAppStore((store) => store.consumeTabStartupCommand)
   const [setupSplit] = useState(() => useAppStore.getState().pendingSetupSplitByTabId[tabId])
@@ -425,6 +434,15 @@ export default function TerminalPane({
       consumeTabStartupCommand(tabId)
     }
   }, [startup, tabId, consumeTabStartupCommand])
+
+  const dismissSessionRestoredBanner = useCallback((): void => {
+    setShowSessionRestoredBanner(false)
+  }, [])
+  useSessionRestoredBannerDismiss(
+    showSessionRestoredBanner,
+    containerRef,
+    dismissSessionRestoredBanner
+  )
 
   const openDiskSpaceAnalyzer = useCallback(() => {
     setSessionStateSaveFailureOpen(false)
@@ -767,6 +785,19 @@ export default function TerminalPane({
   // a running child process (e.g. npm run dev), so the user doesn't
   // accidentally kill it. An idle shell prompt closes immediately. Ctrl+D
   // (explicit EOF) bypasses this by design.
+  const getCloseDialogCopyKind = useCallback(
+    (paneId: number): CloseTerminalDialogCopyKind => {
+      const leafId = managerRef.current?.getLeafId(paneId)
+      if (!leafId) {
+        return 'command'
+      }
+      const agentType =
+        useAppStore.getState().agentStatusByPaneKey[makePaneKey(tabId, leafId)]?.agentType
+      return agentType && agentType !== 'unknown' ? 'agent' : 'command'
+    },
+    [tabId]
+  )
+
   const handleRequestClosePane = useCallback(
     (paneId: number) => {
       const transport = paneTransportsRef.current.get(paneId)
@@ -778,10 +809,10 @@ export default function TerminalPane({
       const settings = useAppStore.getState().settings
       void inspectRuntimeTerminalProcess(settings, ptyId)
         .then((process) => {
-          if (process.hasChildProcesses) {
-            setCloseConfirmPaneId(paneId)
-          } else {
+          if (!process.hasChildProcesses || settings?.skipCloseTerminalWithRunningProcessConfirm) {
             executeClosePane(paneId)
+          } else {
+            setPendingCloseConfirmation({ paneId, copyKind: getCloseDialogCopyKind(paneId) })
           }
         })
         // Why: if the child-process probe rejects (IPC wedged, handler
@@ -790,7 +821,7 @@ export default function TerminalPane({
         // had a child process. Matches the semantics of the !ptyId branch above.
         .catch(() => executeClosePane(paneId))
     },
-    [executeClosePane]
+    [executeClosePane, getCloseDialogCopyKind]
   )
 
   const handleSearchSelectedText = useCallback((selectedText: string): void => {
@@ -798,13 +829,24 @@ export default function TerminalPane({
     state.showRightSidebarSearch({ query: selectedText })
   }, [])
 
-  const handleConfirmClose = useCallback(() => {
-    if (closeConfirmPaneId === null) {
-      return
-    }
-    executeClosePane(closeConfirmPaneId)
-    setCloseConfirmPaneId(null)
-  }, [closeConfirmPaneId, executeClosePane])
+  const handleConfirmClose = useCallback(
+    (dontAskAgain: boolean) => {
+      if (pendingCloseConfirmation === null) {
+        return
+      }
+      const paneId = pendingCloseConfirmation.paneId
+      setPendingCloseConfirmation(null)
+      if (dontAskAgain) {
+        void updateSettings({ skipCloseTerminalWithRunningProcessConfirm: true })
+      }
+      executeClosePane(paneId)
+    },
+    [executeClosePane, pendingCloseConfirmation, updateSettings]
+  )
+
+  const handleCancelClose = useCallback(() => {
+    setPendingCloseConfirmation(null)
+  }, [])
 
   useTerminalPaneLifecycle({
     tabId,
@@ -1037,6 +1079,8 @@ export default function TerminalPane({
         cwd,
         startup: { command: 'codex' },
         paneTransportsRef,
+        paneMode2031Ref,
+        paneLastThemeModeRef,
         replayingPanesRef,
         isActiveRef,
         isVisibleRef,
@@ -1108,6 +1152,7 @@ export default function TerminalPane({
   useTerminalFontZoom({ isActive, managerRef, paneFontSizesRef, settingsRef })
 
   useTerminalKeyboardShortcuts({
+    tabId,
     isActive,
     keyboardScopeRef: containerRef,
     managerRef,
@@ -1289,6 +1334,9 @@ export default function TerminalPane({
         forceBracketedMultilineTextPaste,
         pasteText: (text, options) => {
           pasteTerminalText(pane.terminal, text, options)
+          if (text) {
+            recordTerminalUserInputForLeaf(tabId, pane.leafId)
+          }
           if (options?.recoverImagePasteWebglAtlas) {
             scheduleImagePasteWebglAtlasRecovery()
           }
@@ -1395,7 +1443,7 @@ export default function TerminalPane({
       container.removeEventListener('keydown', onKeyPaste, { capture: true })
       container.removeEventListener('paste', onPaste, { capture: true })
     }
-  }, [isActive, worktreeId, keybindings, forceBracketedMultilineTextPaste])
+  }, [isActive, worktreeId, keybindings, forceBracketedMultilineTextPaste, tabId])
 
   // Why: a click inside the terminal container is a deliberate interaction
   // with the pane — dismiss the attention indicator for this tab and worktree
@@ -1460,13 +1508,14 @@ export default function TerminalPane({
     }
     let needsFit = false
     for (const pane of manager.getPanes()) {
-      // Show the title bar space when the pane has a title OR is being
-      // inline-edited (so the input appears even for untitled panes).
+      // Show the title bar space when the pane has a title, is being
+      // inline-edited, or has transient startup chrome.
       // Unread activity does NOT reserve title-bar space — the bell is
       // rendered as an absolutely-positioned overlay in the pane's top-right
       // corner so it can appear and disappear without shifting terminal
       // content, avoiding the jarring reflow on bell toggles.
-      const shouldShow = !!paneTitles[pane.id] || renamingPaneId === pane.id
+      const shouldShow =
+        !!paneTitles[pane.id] || renamingPaneId === pane.id || showSessionRestoredBanner
       const hadTitle = pane.container.hasAttribute('data-has-title')
       if (shouldShow && !hadTitle) {
         pane.container.setAttribute('data-has-title', '')
@@ -1479,7 +1528,7 @@ export default function TerminalPane({
     if (needsFit) {
       fitPanes(manager)
     }
-  }, [paneTitles, renamingPaneId])
+  }, [paneCount, paneTitles, renamingPaneId, showSessionRestoredBanner])
 
   // Register a capture callback for shutdown. The beforeunload handler in
   // App.tsx calls all registered callbacks to serialize terminal buffers.
@@ -1820,10 +1869,11 @@ export default function TerminalPane({
       void readPrimarySelectionText().then((text) => {
         if (text) {
           pasteTerminalText(clickedPane.terminal, text)
+          recordTerminalUserInputForLeaf(tabId, clickedPane.leafId)
         }
       })
     },
-    [getPrimarySelectionMiddleClickPane]
+    [getPrimarySelectionMiddleClickPane, tabId]
   )
 
   const handlePrimarySelectionAuxClick = useCallback(
@@ -1924,7 +1974,9 @@ export default function TerminalPane({
             // worktree's path shape; legacy SSH drops remain POSIX.
             connectionId: getConnectionId(worktreeId)
           })
-          transport.sendInput(shellEscapePath(filePath, targetShell))
+          if (transport.sendInput(shellEscapePath(filePath, targetShell))) {
+            recordTerminalUserInputForLeaf(tabId, pane.leafId)
+          }
           // Move focus to the terminal so the user can keep typing where the
           // dropped path just landed. Without this, focus stays on the file
           // tree row that originated the drag and subsequent keystrokes do
@@ -1956,6 +2008,15 @@ export default function TerminalPane({
             searchStateRef={searchStateRef}
           />,
           activePane.container
+        )}
+      {showSessionRestoredBanner &&
+        activePane?.container &&
+        createPortal(
+          // Why: resumed Codex TUIs repaint xterm immediately, so the wake marker
+          // must live in the pane chrome instead of the PTY byte stream.
+          <SessionRestoredBanner visible />,
+          activePane.container,
+          'session-restored-banner'
         )}
       <TerminalContextMenu
         open={contextMenu.open}
@@ -2131,8 +2192,9 @@ export default function TerminalPane({
         )
       })}
       <CloseTerminalDialog
-        open={closeConfirmPaneId !== null}
-        onCancel={() => setCloseConfirmPaneId(null)}
+        open={pendingCloseConfirmation !== null}
+        copyKind={pendingCloseConfirmation?.copyKind}
+        onCancel={handleCancelClose}
         onConfirm={handleConfirmClose}
       />
     </>

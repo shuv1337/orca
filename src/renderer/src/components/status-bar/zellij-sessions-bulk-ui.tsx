@@ -53,10 +53,17 @@ export function ZellijSessionsBulkToolbar({
         type="button"
         onClick={onToggleSelectAll}
         disabled={rowCount === 0 || bulkDeleting}
-        aria-label={translate(
-          'auto.components.status.bar.ZellijSessionsPanel.select_all',
-          allSelected ? 'Clear selection' : 'Select all Zellij sessions'
-        )}
+        aria-label={
+          allSelected
+            ? translate(
+                'auto.components.status.bar.ZellijSessionsPanel.clear_selection',
+                'Clear selection'
+              )
+            : translate(
+                'auto.components.status.bar.ZellijSessionsPanel.select_all_sessions',
+                'Select all Zellij sessions'
+              )
+        }
         className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
       >
         {allSelected

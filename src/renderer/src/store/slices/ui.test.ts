@@ -70,6 +70,7 @@ function createUIStore(): StoreApi<AppState> {
     worktreesByRepo: {},
     rightSidebarOpen: false,
     rightSidebarWidth: 280,
+    markdownTocPanelWidth: 240,
     rightSidebarTab: 'explorer',
     rightSidebarExplorerView: 'files',
     ...createSettingsSearchState(args[0]),
@@ -866,6 +867,18 @@ describe('createUISlice hydratePersistedUI', () => {
 
     expect(store.getState().sidebarWidth).toBe(220)
     expect(store.getState().rightSidebarWidth).toBe(220)
+  })
+
+  it('clamps persisted markdown toc panel widths into the supported range', () => {
+    const store = createUIStore()
+
+    store.getState().hydratePersistedUI(
+      makePersistedUI({
+        markdownTocPanelWidth: 100
+      })
+    )
+
+    expect(store.getState().markdownTocPanelWidth).toBe(200)
   })
 
   it('preserves right sidebar widths above the former 500px cap', () => {
@@ -1984,6 +1997,74 @@ describe('createUISlice setup guide sidebar dismissal', () => {
     )
     expect(store.getState().setupGuideBrowserMilestoneMigrated).toBe(false)
     expect(store.getState().setupGuideBrowserMilestoneLegacyComplete).toBe(false)
+  })
+})
+
+describe('createUISlice mobile emulator agent setup dismissal', () => {
+  it('persists mobile emulator agent setup dismissal once', () => {
+    const setMock = vi.fn(() => Promise.resolve())
+    vi.stubGlobal('window', {
+      api: {
+        ui: {
+          set: setMock
+        }
+      }
+    })
+    const store = createUIStore()
+
+    store.getState().dismissMobileEmulatorAgentSetup()
+    store.getState().dismissMobileEmulatorAgentSetup()
+
+    expect(store.getState().mobileEmulatorAgentSetupDismissed).toBe(true)
+    expect(setMock).toHaveBeenCalledTimes(1)
+    expect(setMock).toHaveBeenCalledWith({ mobileEmulatorAgentSetupDismissed: true })
+  })
+
+  it('hydrates only explicit mobile emulator agent setup dismissals', () => {
+    const store = createUIStore()
+
+    store
+      .getState()
+      .hydratePersistedUI(makePersistedUI({ mobileEmulatorAgentSetupDismissed: true }))
+    expect(store.getState().mobileEmulatorAgentSetupDismissed).toBe(true)
+
+    store
+      .getState()
+      .hydratePersistedUI(makePersistedUI({ mobileEmulatorAgentSetupDismissed: undefined }))
+    expect(store.getState().mobileEmulatorAgentSetupDismissed).toBe(false)
+  })
+})
+
+describe('createUISlice mobile emulator tab intro dismissal', () => {
+  it('persists mobile emulator tab intro dismissal once', () => {
+    const setMock = vi.fn(() => Promise.resolve())
+    vi.stubGlobal('window', {
+      api: {
+        ui: {
+          set: setMock
+        }
+      }
+    })
+    const store = createUIStore()
+
+    store.getState().dismissMobileEmulatorTabIntro()
+    store.getState().dismissMobileEmulatorTabIntro()
+
+    expect(store.getState().mobileEmulatorTabIntroDismissed).toBe(true)
+    expect(setMock).toHaveBeenCalledTimes(1)
+    expect(setMock).toHaveBeenCalledWith({ mobileEmulatorTabIntroDismissed: true })
+  })
+
+  it('hydrates only explicit mobile emulator tab intro dismissals', () => {
+    const store = createUIStore()
+
+    store.getState().hydratePersistedUI(makePersistedUI({ mobileEmulatorTabIntroDismissed: true }))
+    expect(store.getState().mobileEmulatorTabIntroDismissed).toBe(true)
+
+    store
+      .getState()
+      .hydratePersistedUI(makePersistedUI({ mobileEmulatorTabIntroDismissed: undefined }))
+    expect(store.getState().mobileEmulatorTabIntroDismissed).toBe(false)
   })
 })
 

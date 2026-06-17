@@ -38,6 +38,30 @@ vi.mock('./SidebarSettingsHelpMenu', () => ({
 
 const roots: Root[] = []
 
+function ensureTestLocalStorage(): Storage {
+  if (window.localStorage) {
+    return window.localStorage
+  }
+
+  const values = new Map<string, string>()
+  const storage = {
+    get length() {
+      return values.size
+    },
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(String(key)) ?? null,
+    key: (index: number) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      values.delete(String(key))
+    },
+    setItem: (key: string, value: string) => {
+      values.set(String(key), String(value))
+    }
+  } satisfies Storage
+  Object.defineProperty(window, 'localStorage', { configurable: true, value: storage })
+  return storage
+}
+
 async function renderToolbar(onWorkspaceBoardToggle = vi.fn()): Promise<{
   container: HTMLDivElement
   rerender: () => Promise<void>
@@ -66,7 +90,7 @@ async function renderToolbar(onWorkspaceBoardToggle = vi.fn()): Promise<{
 describe('SidebarToolbar moved workspace board hint', () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
-    window.localStorage.clear()
+    ensureTestLocalStorage().clear()
     mocks.activeTooltipOpen = false
     mocks.state = {
       persistedUIReady: true,
@@ -106,7 +130,7 @@ describe('SidebarToolbar moved workspace board hint', () => {
 
     expect(onWorkspaceBoardToggle).toHaveBeenCalledOnce()
     expect(container.textContent).not.toContain('Workspace board moved to the bottom bar')
-    expect(window.localStorage.getItem('orca.workspaceBoardMovedHintSeen.v1')).toBeNull()
+    expect(ensureTestLocalStorage().getItem('orca.workspaceBoardMovedHintSeen.v1')).toBeNull()
   })
 
   it('shows the moved hint once to users who had already used the workspace board', async () => {
@@ -120,6 +144,6 @@ describe('SidebarToolbar moved workspace board hint', () => {
     const { container } = await renderToolbar()
 
     expect(container.textContent).toContain('Workspace board moved to the bottom bar')
-    expect(window.localStorage.getItem('orca.workspaceBoardMovedHintSeen.v1')).toBe('true')
+    expect(ensureTestLocalStorage().getItem('orca.workspaceBoardMovedHintSeen.v1')).toBe('true')
   })
 })

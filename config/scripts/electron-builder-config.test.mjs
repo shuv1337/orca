@@ -72,7 +72,11 @@ describe('electron-builder config', () => {
   })
 
   it('builds RPMs without changing existing Linux artifact names', () => {
-    expect(electronBuilderConfig.linux.target).toEqual(['AppImage', 'deb', 'rpm'])
+    expect(electronBuilderConfig.linux.target.map(({ target }) => target)).toEqual([
+      'AppImage',
+      'deb',
+      'rpm'
+    ])
     expect(electronBuilderConfig.appImage.artifactName).toBe('orca-linux.${ext}')
     expect(electronBuilderConfig.deb.artifactName).toBe('orca-ide_${version}_${arch}.${ext}')
     expect(electronBuilderConfig.rpm).toMatchObject({

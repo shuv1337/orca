@@ -170,6 +170,7 @@ __orca_osc133_preexec() {
   case "$BASH_COMMAND" in
     *__orca_osc133_precmd*|*__orca_osc133_prompt_done*) return ;;
   esac
+  [[ -z "\${__orca_in_command:-}" ]] || return
   printf "\\033]133;C\\007"
   __orca_in_command=1
 }

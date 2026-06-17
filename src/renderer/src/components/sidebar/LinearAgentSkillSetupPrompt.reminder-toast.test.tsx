@@ -85,6 +85,30 @@ vi.mock('../settings/AgentSkillSetupPanel', () => ({
 let root: Root | null = null
 let container: HTMLDivElement | null = null
 
+function ensureTestLocalStorage(): Storage {
+  if (window.localStorage) {
+    return window.localStorage
+  }
+
+  const values = new Map<string, string>()
+  const storage = {
+    get length() {
+      return values.size
+    },
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(String(key)) ?? null,
+    key: (index: number) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      values.delete(String(key))
+    },
+    setItem: (key: string, value: string) => {
+      values.set(String(key), String(value))
+    }
+  } satisfies Storage
+  Object.defineProperty(window, 'localStorage', { configurable: true, value: storage })
+  return storage
+}
+
 function cliStatus(overrides: Partial<CliInstallStatus>): CliInstallStatus {
   return {
     platform: 'darwin',
@@ -170,7 +194,7 @@ describe('LinearAgentSkillSetupPrompt reminder toast', () => {
     mocks.toastWarning.mockClear()
     mocks.toastWarning.mockReturnValue('linear-setup-toast-id')
     mocks.panelProps.length = 0
-    window.localStorage.clear()
+    ensureTestLocalStorage().clear()
     _linearAgentSkillSetupPromptInternalsForTests.resetSessionReminders()
     Object.defineProperty(window, 'api', {
       configurable: true,
@@ -185,7 +209,7 @@ describe('LinearAgentSkillSetupPrompt reminder toast', () => {
 
   afterEach(async () => {
     await unmountPrompt()
-    window.localStorage.clear()
+    ensureTestLocalStorage().clear()
     _linearAgentSkillSetupPromptInternalsForTests.resetSessionReminders()
     Reflect.deleteProperty(window, 'api')
   })

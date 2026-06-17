@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isAgentForegroundWrapperProcess,
   isExpectedAgentProcess,
   isRecognizedAgentType,
   recognizeAgentProcess,
@@ -34,6 +35,28 @@ describe('agent process recognition', () => {
     ).toBe(true)
     expect(isExpectedAgentProcess('/usr/local/bin/claude', 'claude')).toBe(true)
     expect(isExpectedAgentProcess('powershell.exe', 'claude')).toBe(false)
+  })
+
+  it('does not recognize Claude print-mode hook subprocesses as interactive agents', () => {
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        'claude --print --model haiku "Analyze this conversation and determine: Does the assistant have more autonomous work to do RIGHT NOW?"'
+      )
+    ).toBeNull()
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        String.raw`/home/dev/.local/bin/claude -p "Context: This summary will be shown in a list"`
+      )
+    ).toBeNull()
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        String.raw`C:\Users\dev\AppData\Roaming\npm\claude.exe --output-format=json "hook prompt"`
+      )
+    ).toBeNull()
+    expect(recognizeAgentProcessFromCommandLine('claude --resume abc123')).toEqual({
+      agent: 'claude',
+      processName: 'claude'
+    })
   })
 
   it('recognizes Command Code without classifying Windows cmd.exe as an agent', () => {
@@ -75,6 +98,36 @@ describe('agent process recognition', () => {
       agent: 'hermes',
       processName: 'hermes'
     })
+    expect(
+      recognizeAgentProcessFromCommandLine('python3.12 /opt/homebrew/bin/hermes --tui')
+    ).toEqual({
+      agent: 'hermes',
+      processName: 'hermes'
+    })
+    expect(recognizeAgentProcessFromCommandLine('python -m aider')).toEqual({
+      agent: 'aider',
+      processName: 'aider'
+    })
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        String.raw`python C:\Users\dev\AppData\Roaming\Python\Python312\Scripts\aider.py`
+      )
+    ).toEqual({ agent: 'aider', processName: 'aider' })
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        String.raw`node C:\Users\dev\AppData\Roaming\npm\codex.cmd`
+      )
+    ).toEqual({ agent: 'codex', processName: 'codex' })
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        String.raw`node C:\Users\dev\AppData\Roaming\npm\node_modules\@openai\codex\bin\codex.js`
+      )
+    ).toEqual({ agent: 'codex', processName: 'codex' })
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        String.raw`node C:\Users\dev\AppData\Roaming\npm\node_modules\@google\gemini-cli\bundle\gemini.mjs`
+      )
+    ).toEqual({ agent: 'gemini', processName: 'gemini' })
   })
 
   it('does not classify prompt text as a wrapped agent command', () => {
@@ -83,6 +136,24 @@ describe('agent process recognition', () => {
         'node /tmp/not-an-agent.js "compare opencode vs orca in Gemini CLI"'
       )
     ).toBeNull()
+    expect(recognizeAgentProcessFromCommandLine(String.raw`node C:\tmp\not-an-agent.js`)).toBeNull()
+    expect(
+      recognizeAgentProcessFromCommandLine(
+        String.raw`node C:\repo\server.js --plugin C:\tmp\codex.js`
+      )
+    ).toBeNull()
+    expect(recognizeAgentProcessFromCommandLine(String.raw`node C:\repo\codex.js`)).toBeNull()
+    expect(recognizeAgentProcessFromCommandLine(String.raw`node C:\repo\gemini.mjs`)).toBeNull()
+    expect(recognizeAgentProcessFromCommandLine(String.raw`python C:\repo\aider.py`)).toBeNull()
+    expect(recognizeAgentProcessFromCommandLine('python -m not_aider')).toBeNull()
+  })
+
+  it('identifies only foreground processes that can wrap agent entrypoints', () => {
+    expect(isAgentForegroundWrapperProcess('node.exe')).toBe(true)
+    expect(isAgentForegroundWrapperProcess('/usr/bin/python3')).toBe(true)
+    expect(isAgentForegroundWrapperProcess('python3.12.exe')).toBe(true)
+    expect(isAgentForegroundWrapperProcess('bash')).toBe(false)
+    expect(isAgentForegroundWrapperProcess('vim.exe')).toBe(false)
   })
 
   it('recognizes versioned Grok process names observed from the installed CLI', () => {

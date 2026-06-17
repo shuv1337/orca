@@ -1,8 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { getLocalExecutionHostLabel } from '../../../../shared/execution-host'
+import { getExecutionHostLabel } from '../../../../shared/execution-host'
 import { GitHubRateLimitPanel } from '@/components/github/github-rate-limit-display'
 import { GitLabRateLimitPanel } from '@/components/gitlab/gitlab-rate-limit-display'
+
+const LOCAL_HOST_LABEL = getExecutionHostLabel('local')
 
 type StoreState = {
   settings: { activeRuntimeEnvironmentId: string | null }
@@ -34,7 +36,7 @@ describe('provider rate-limit panels account scope', () => {
 
     const markup = renderToStaticMarkup(<GitHubRateLimitPanel />)
 
-    expect(markup).toContain(`Budget scope: ${getLocalExecutionHostLabel()}`)
+    expect(markup).toContain(`Budget scope: ${LOCAL_HOST_LABEL}`)
     expect(markup).toContain(
       'GitHub API budget is fetched from the CLI on this desktop client. Use Settings &gt; Remote shuvorca Servers &gt; Advanced to view server-owned budgets.'
     )

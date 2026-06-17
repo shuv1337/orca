@@ -97,6 +97,8 @@ vi.mock('../browser-pane/browser-runtime', () => ({
   getLiveBrowserUrl: () => null
 }))
 
+import BrowserTab from './BrowserTab'
+
 type ReactElementLike = {
   type: unknown
   props: Record<string, unknown>
@@ -124,8 +126,7 @@ function baseBrowserTab(overrides: Partial<BrowserTabState> = {}): BrowserTabSta
 
 async function renderBrowserTab(tab: BrowserTabState): Promise<unknown> {
   reactHookRuntime.index = 0
-  const module = await import('./BrowserTab')
-  return module.default({
+  return BrowserTab({
     tab,
     isActive: true,
     isPinned: false,

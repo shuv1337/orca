@@ -96,7 +96,8 @@ function stashWebBuild(): () => void {
     }
   }
 
-  const tempDir = mkdtempSync(join(tmpdir(), 'orca-dev-web-stash-'))
+  mkdirSync(resolve('out'), { recursive: true })
+  const tempDir = mkdtempSync(resolve('out/.web-stash-'))
   const stashedPath = join(tempDir, 'web')
   renameSync(outWebPath, stashedPath)
   return () => {
