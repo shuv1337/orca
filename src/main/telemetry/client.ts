@@ -37,16 +37,19 @@ import { getCohortAtEmit } from './cohort-classifier'
 import { resolveConsent, type ConsentState } from './consent'
 import { commonPropsSchema, validate } from './validator'
 
-// Compile-time feature flag. PR 2 shipped with this `false` so the SDK was
-// wired but no event transmitted. PR 3 flips it to `true`. Independent of
-// the build-identity gate below: both must be satisfied to transmit, so
-// flipping the flag alone still leaves contributor builds silent.
+// Compile-time feature flag. Upstream ships this `true`; the shuvorca fork
+// keeps it `false` — the fork has no PostHog project and intentionally
+// transmits nothing, so we never inject `ORCA_POSTHOG_WRITE_KEY` in fork CI.
+// With the flag off, Rollup dead-code-eliminates the transport block and
+// verify-telemetry-constants.mjs skips its asar grep, so the release build
+// is not blocked on a write key the fork doesn't have. Independent of the
+// build-identity gate below: both must be satisfied to transmit.
 //
 // NOTE: config/scripts/verify-telemetry-constants.mjs greps this declaration
 // shape (`const TELEMETRY_ENABLED = true|false`) to gate release verification.
 // If you refactor this (e.g. let, export, computed-from-env, moved into a
 // config object), update the regex in that script too.
-const TELEMETRY_ENABLED = true
+const TELEMETRY_ENABLED = false
 
 // Eligible-to-transmit only if the CI release pipeline injected BOTH the
 // build-identity constant and a write key. One without the other is treated
