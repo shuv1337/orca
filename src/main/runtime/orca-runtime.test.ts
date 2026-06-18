@@ -16577,6 +16577,44 @@ describe('OrcaRuntimeService', () => {
     ])
   })
 
+  it('persists runtime worktree sort order without broadcasting repo changes', () => {
+    const setWorktreeMeta = vi.fn()
+    const runtime = new OrcaRuntimeService({
+      ...store,
+      setWorktreeMeta
+    } as never)
+    const reposChanged = vi.fn()
+    const clientEvent = vi.fn()
+    runtime.setNotifier({
+      worktreesChanged: vi.fn(),
+      reposChanged,
+      activateWorktree: vi.fn(),
+      createTerminal: vi.fn(),
+      revealTerminalSession: vi.fn(),
+      splitTerminal: vi.fn(),
+      renameTerminal: vi.fn(),
+      closeTerminal: vi.fn(),
+      closeSessionTab: vi.fn(),
+      sleepWorktree: vi.fn(),
+      terminalFitOverrideChanged: vi.fn(),
+      terminalDriverChanged: vi.fn()
+    })
+    runtime.onClientEvent(clientEvent)
+
+    const result = runtime.persistManagedWorktreeSortOrder(['wt-a', 'wt-b'])
+
+    expect(result).toEqual({ updated: 2 })
+    expect(setWorktreeMeta).toHaveBeenCalledTimes(2)
+    expect(setWorktreeMeta).toHaveBeenNthCalledWith(1, 'wt-a', {
+      sortOrder: expect.any(Number)
+    })
+    expect(setWorktreeMeta).toHaveBeenNthCalledWith(2, 'wt-b', {
+      sortOrder: expect.any(Number)
+    })
+    expect(reposChanged).not.toHaveBeenCalled()
+    expect(clientEvent).not.toHaveBeenCalled()
+  })
+
   describe('browser page targeting', () => {
     function mockLiveBrowserGuest(): void {
       electronMocks.webContents.fromId.mockReturnValue({

@@ -11476,8 +11476,6 @@ export class OrcaRuntimeService {
       this.store.setWorktreeMeta(orderedIds[i], { sortOrder: now - i * 1000 })
       updated++
     }
-    this.invalidateResolvedWorktreeCache()
-    this.notifyReposChanged()
     return { updated }
   }
 
