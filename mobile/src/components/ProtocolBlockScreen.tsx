@@ -2,9 +2,14 @@ import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-nati
 import { router } from 'expo-router'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import type { CompatVerdict } from '../transport/protocol-compat'
+import { COMPANION_APP_NAME, PRODUCT_DISPLAY_NAME } from '../product-brand'
+import {
+  FORK_GITHUB_RELEASES_URL,
+  forkIosUpdateSource,
+  forkIosUpdateUrl
+} from '../mobile-distribution'
 
-const RELEASES_URL = 'https://github.com/stablyai/orca/releases'
-const IOS_APP_STORE_URL = 'itms-apps://apps.apple.com/app/orca-ide/id6766130217'
+const RELEASES_URL = FORK_GITHUB_RELEASES_URL
 
 type Props = {
   verdict: Extract<CompatVerdict, { kind: 'blocked' }>
@@ -14,7 +19,7 @@ export function ProtocolBlockScreen({ verdict }: Props) {
   const isMobileTooOld = verdict.reason === 'mobile-too-old'
   const mobileUpdateTarget =
     Platform.OS === 'ios'
-      ? { label: 'Open App Store', url: IOS_APP_STORE_URL, storeName: 'the App Store' }
+      ? { label: 'Get the latest build', url: forkIosUpdateUrl(), storeName: forkIosUpdateSource() }
       : { label: null, url: null, storeName: 'your mobile app store' }
   const primaryAction = isMobileTooOld
     ? mobileUpdateTarget.url && mobileUpdateTarget.label
@@ -22,10 +27,12 @@ export function ProtocolBlockScreen({ verdict }: Props) {
       : null
     : { label: 'Open GitHub Releases', url: RELEASES_URL }
 
-  const title = isMobileTooOld ? 'Update Orca Mobile' : 'Update Orca on your computer'
+  const title = isMobileTooOld
+    ? `Update ${COMPANION_APP_NAME}`
+    : `Update ${PRODUCT_DISPLAY_NAME} on your computer`
   const body = isMobileTooOld
-    ? `This desktop needs a newer Orca Mobile app. Update Orca Mobile from ${mobileUpdateTarget.storeName}, then try this host again.`
-    : 'This paired desktop app is too old for your current Orca Mobile app. Update Orca on your computer, then try this host again.'
+    ? `This desktop needs a newer ${COMPANION_APP_NAME} app. Update ${COMPANION_APP_NAME} from ${mobileUpdateTarget.storeName}, then try this host again.`
+    : `This paired desktop app is too old for your current ${COMPANION_APP_NAME} app. Update ${PRODUCT_DISPLAY_NAME} on your computer, then try this host again.`
   const recoveryNote =
     'Already updated? Go back to Hosts and refresh the connection. If this message stays, remove this host and pair it again.'
 

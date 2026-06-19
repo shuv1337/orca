@@ -407,7 +407,7 @@ export default function MobileSourceControlScreen() {
             if (isMobileGitUnavailable(response.error?.code, response.error?.message)) {
               setScreenState({
                 kind: 'unavailable',
-                message: 'Update Orca desktop to use Source Control on mobile.'
+                message: 'Update shuvorca desktop to use Source Control on mobile.'
               })
               return false
             }

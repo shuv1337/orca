@@ -95,7 +95,7 @@ export default function SettingsScreen() {
         <View style={styles.separator} />
         <Pressable
           style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          onPress={() => void Linking.openURL('https://github.com/stablyai/orca/issues')}
+          onPress={() => void Linking.openURL('https://github.com/shuv1337/orca/issues')}
         >
           <LifeBuoy size={16} color={colors.textSecondary} />
           <Text style={styles.rowLabel}>Support</Text>

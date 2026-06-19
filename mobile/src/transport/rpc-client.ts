@@ -314,7 +314,7 @@ export function connect(
             if (index !== -1) {
               connectWaiters.splice(index, 1)
             }
-            reject(new Error('Timed out while connecting to the remote Orca runtime.'))
+            reject(new Error('Timed out while connecting to the remote shuvorca runtime.'))
           },
           Math.max(0, timeoutMs)
         )

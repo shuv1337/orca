@@ -63,8 +63,8 @@ const sections: TroubleshootSection[] = [
     icon: <Shield size={16} color={colors.textSecondary} />,
     title: 'Firewall Blocking Port 6768',
     steps: [
-      'macOS: System Settings → Network → Firewall — allow Orca.',
-      'Windows: Defender Firewall → Allow app — enable Orca for Private networks.',
+      'macOS: System Settings → Network → Firewall — allow shuvorca.',
+      'Windows: Defender Firewall → Allow app — enable shuvorca for Private networks.',
       'Linux: sudo ufw allow 6768',
       'Corporate/school networks may block P2P — try a personal hotspot.'
     ]
@@ -74,8 +74,8 @@ const sections: TroubleshootSection[] = [
     icon: <Monitor size={16} color={colors.textSecondary} />,
     title: 'Desktop App Not Running',
     steps: [
-      'Orca must be open on your desktop to accept connections.',
-      'Try restarting Orca — the companion server starts on launch.',
+      'shuvorca must be open on your desktop to accept connections.',
+      'Try restarting shuvorca — the companion server starts on launch.',
       'After an update, you may need to re-pair via QR code.'
     ]
   },

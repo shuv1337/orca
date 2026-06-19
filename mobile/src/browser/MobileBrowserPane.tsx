@@ -420,7 +420,7 @@ export function MobileBrowserPane({
       busyRef.current = false
       setBusy(false)
       if (screencastSupported === false) {
-        setError('Update desktop Orca to stream browser tabs on mobile.')
+        setError('Update desktop shuvorca to stream browser tabs on mobile.')
       } else if (screencastSupported === null) {
         setError('Checking desktop browser streaming support.')
       } else if (!tab.browserPageId) {
