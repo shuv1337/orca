@@ -36,6 +36,10 @@ Never use vague names like `helpers`, `utils`, `common`, `misc`, or `shared-stuf
 
 Always use the primary working directory (the worktree) for all file reads and edits. Never follow absolute paths from subagent results that point to the main repo.
 
+## Local Linux Rebuild/Install Notes
+
+On the local Arch workstation, `~/.local/bin/orca-ide` points at `/home/shuv/Applications/orca-linux.AppImage`. `pnpm run build:linux` may still produce `dist/orca-linux.AppImage` and `dist/orca-ide_<version>_amd64.deb` before failing the RPM target if `rpmbuild` is missing; that RPM failure does not prevent replacing the local AppImage. Preserve the previous AppImage as a timestamped backup and replace atomically with `install -m 755 dist/orca-linux.AppImage /home/shuv/Applications/orca-linux.AppImage.new && mv ...`.
+
 ## Cross-Platform Support
 
 Orca targets macOS, Linux, and Windows. Keep all platform-dependent behavior behind runtime checks:
