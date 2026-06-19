@@ -16590,6 +16590,7 @@ describe('OrcaRuntimeService', () => {
       reposChanged,
       activateWorktree: vi.fn(),
       createTerminal: vi.fn(),
+      focusTerminal: vi.fn(),
       revealTerminalSession: vi.fn(),
       splitTerminal: vi.fn(),
       renameTerminal: vi.fn(),
